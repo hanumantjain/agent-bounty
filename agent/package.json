@@ -1,0 +1,13 @@
+{
+  "name": "agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "pay-test.js",
+  "scripts": {
+    "pay-test": "node --env-file=.env pay-test.js"
+  },
+  "dependencies": {
+    "@hashgraph/sdk": "^2.81.0"
+  }
+}
