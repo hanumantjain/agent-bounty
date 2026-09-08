@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node --env-file=.env run.js",
     "start:blocked": "ENS_IDENTITY=intern node --env-file=.env run.js",
-    "pay-test": "node --env-file=.env pay-test.js",
-    "setup-ens": "node --env-file=.env scripts/setupEnsIdentity.js"
+    "setup-ens": "node --env-file=.env scripts/setupEnsIdentity.js",
+    "create-bounty": "node --env-file=.env scripts/createTestBounty.js"
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.81.0",
