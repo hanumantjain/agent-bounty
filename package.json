@@ -5,6 +5,8 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
     "build:frontend": "npm run build --prefix frontend",
-    "pay-test": "npm run pay-test --prefix agent"
+    "pay-test": "npm run pay-test --prefix agent",
+    "contracts:compile": "npm run compile --prefix contracts",
+    "contracts:deploy": "npm run deploy --prefix contracts"
   }
 }
