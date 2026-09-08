@@ -2,7 +2,7 @@ import { buildAndSignPayment } from './lib/hederaPay.js'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
 const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
-const RESOURCE_PATH = '/api/data/protocol-stats'
+const RESOURCE_PATH = '/api/data/recent-withdrawals'
 
 async function main() {
   console.log(`→ requesting ${RESOURCE_PATH} (no payment)`)
