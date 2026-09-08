@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "pay-test.js",
+  "main": "run.js",
   "scripts": {
-    "pay-test": "node --env-file=.env pay-test.js"
+    "start": "node --env-file=.env run.js",
+    "start:blocked": "ENS_IDENTITY=intern node --env-file=.env run.js",
+    "pay-test": "node --env-file=.env pay-test.js",
+    "setup-ens": "node --env-file=.env scripts/setupEnsIdentity.js"
   },
   "dependencies": {
-    "@hashgraph/sdk": "^2.81.0"
+    "@hashgraph/sdk": "^2.81.0",
+    "viem": "^2.56.3"
   }
 }

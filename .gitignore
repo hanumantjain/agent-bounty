@@ -9,3 +9,4 @@ logs
 .env.*
 !.env.example
 .cursor
+AgentBounty_Complete_Build_Guide.pdf
