@@ -1,7 +1,7 @@
 const GATEWAY_URL = process.env.GRAPH_GATEWAY_URL || 'https://gateway.thegraph.com/api'
 
-// Both entities share the same Messari-standard shape (hash, amount, amountUSD, timestamp).
-const ALLOWED_ENTITIES = new Set(['withdraws', 'deposits'])
+// All five entities share the same Messari-standard shape (hash, amount, amountUSD, timestamp).
+const ALLOWED_ENTITIES = new Set(['withdraws', 'deposits', 'borrows', 'repays', 'liquidates'])
 
 function buildQuery(entity) {
   return `

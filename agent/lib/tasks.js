@@ -10,6 +10,18 @@ export const TASK_TYPES = {
     label: 'Detect unusually large deposits',
     entity: 'deposits',
   },
+  'borrow-anomaly': {
+    label: 'Detect unusually large borrows',
+    entity: 'borrows',
+  },
+  'repay-anomaly': {
+    label: 'Detect unusually large repayments',
+    entity: 'repays',
+  },
+  'liquidation-anomaly': {
+    label: 'Detect large liquidations',
+    entity: 'liquidates',
+  },
 }
 
 export function getTaskDefinition(taskType) {

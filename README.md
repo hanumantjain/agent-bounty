@@ -42,7 +42,7 @@ The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky
 
 ## How It Works
 
-1. Human creators post bounties, each funded with HBAR, to the escrow contract — picking a **task type** from the agent's own capability registry (currently: detecting suspicious withdrawals, or unusually large deposits). Many can be open at once
+1. Human creators post bounties, each funded with HBAR, to the escrow contract — picking a **task type** from the agent's own capability registry (currently: unusually large withdrawals, deposits, borrows, repayments, or liquidations — all from the same live lending subgraph, no new data source needed per category). Many can be open at once
 2. An agent discovers every currently-open bounty from the contract's event log
 3. It resolves its ENSv2 identity and spending policy on Sepolia once, then works through the open candidates in order, deciding per bounty whether it can do the work: does it recognize the task type, and is the price within its spending limit? An unrecognized type or an over-budget price is skipped outright — no claim, no transaction for that candidate — and it moves on to the next one
 4. Once it finds one it can do: it claims that bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty (and if another agent claims it first in the meantime, the claim reverts and the agent moves on to the next candidate instead)
