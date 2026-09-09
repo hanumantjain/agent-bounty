@@ -52,15 +52,19 @@ export async function submitAnswer({ walletClient, publicClient, contractAddress
   return hash
 }
 
-export async function discoverLatestOpenBounty(publicClient, contractAddress) {
+async function recentBountyCreatedLogs(publicClient, contractAddress) {
   const latestBlock = await publicClient.getBlockNumber()
   const fromBlock = latestBlock > 5000n ? latestBlock - 5000n : 0n
-  const logs = await publicClient.getLogs({
+  return publicClient.getLogs({
     address: contractAddress,
     event: BOUNTY_CREATED_EVENT,
     fromBlock,
     toBlock: 'latest',
   })
+}
+
+export async function discoverLatestOpenBounty(publicClient, contractAddress) {
+  const logs = await recentBountyCreatedLogs(publicClient, contractAddress)
   for (let i = logs.length - 1; i >= 0; i--) {
     const taskId = logs[i].args.taskId
     const bounty = await getBounty(publicClient, contractAddress, taskId)
@@ -69,4 +73,13 @@ export async function discoverLatestOpenBounty(publicClient, contractAddress) {
     }
   }
   return null
+}
+
+/// Most recently created bounty regardless of status — for dashboard display.
+export async function discoverLatestBounty(publicClient, contractAddress) {
+  const logs = await recentBountyCreatedLogs(publicClient, contractAddress)
+  if (logs.length === 0) return null
+  const taskId = logs[logs.length - 1].args.taskId
+  const bounty = await getBounty(publicClient, contractAddress, taskId)
+  return { taskId, bounty }
 }

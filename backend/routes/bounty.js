@@ -1,0 +1,61 @@
+const express = require('express')
+
+const router = express.Router()
+
+function decodeAnswer(answerHex) {
+  if (!answerHex || answerHex === '0x') return null
+  try {
+    return JSON.parse(Buffer.from(answerHex.slice(2), 'hex').toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
+const STATUS_NAMES = ['None', 'Open', 'Submitted', 'Paid', 'Rejected']
+
+function serializeBounty(taskId, bounty) {
+  return {
+    taskId,
+    creator: bounty.creator,
+    rewardTinybars: bounty.reward.toString(),
+    description: bounty.description,
+    status: STATUS_NAMES[bounty.status],
+    agent: bounty.agent === '0x0000000000000000000000000000000000000000' ? null : bounty.agent,
+    answer: decodeAnswer(bounty.answer),
+  }
+}
+
+router.get('/current', async (req, res) => {
+  try {
+    const { makeHederaEvmClients, discoverLatestBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { publicClient } = makeHederaEvmClients()
+    const found = await discoverLatestBounty(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS)
+    if (!found) return res.status(404).json({ error: 'no bounty found' })
+    res.json({
+      ...serializeBounty(found.taskId, found.bounty),
+      dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
+      contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
+    })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+router.get('/identity/:name', async (req, res) => {
+  try {
+    const { createPublicClient, http } = await import('viem')
+    const { sepolia } = await import('viem/chains')
+    const { resolveSpendingLimit } = await import('../../agent/lib/ens.js')
+
+    const subname = `${req.params.name}.${process.env.ENS_PARENT_LABEL}.eth`
+    const key = process.env.ENS_SPENDING_LIMIT_KEY || 'agent.spending.limit'
+    const ensClient = createPublicClient({ chain: sepolia, transport: http(process.env.ENS_RPC_URL) })
+    const limitHbar = await resolveSpendingLimit(ensClient, subname, key)
+
+    res.json({ subname, spendingLimitHbar: limitHbar })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+module.exports = router

@@ -1,6 +1,8 @@
 const express = require('express')
 const cors = require('cors')
 const dataRouter = require('./routes/data')
+const bountyRouter = require('./routes/bounty')
+const agentRouter = require('./routes/agent')
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -13,6 +15,8 @@ app.get('/api/health', (req, res) => {
 })
 
 app.use('/api/data', dataRouter)
+app.use('/api/bounty', bountyRouter)
+app.use('/api/agent', agentRouter)
 
 app.listen(PORT, () => {
   console.log(`Backend listening on http://localhost:${PORT}`)

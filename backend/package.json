@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file=.env index.js",
-    "dev": "node --watch --env-file=.env index.js"
+    "start": "node --env-file=.env --env-file=../agent/.env index.js",
+    "dev": "node --watch --env-file=.env --env-file=../agent/.env index.js"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +13,7 @@
   "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "viem": "^2.56.3"
   }
 }
