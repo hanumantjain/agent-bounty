@@ -38,6 +38,11 @@ router.get('/run', async (req, res) => {
 // human click, deliberately different from the manual review path in routes/bounty.js.
 const RACE_IDENTITIES = ['researcher', 'intern']
 
+// The parent name itself — agentbounty.eth — is the manager identity that checks submissions
+// and decides who won. Derived the same way runAgent.js builds subnames, not hardcoded, so it
+// stays correct if the registered parent label ever changes.
+const MANAGER_NAME = `${process.env.ENS_PARENT_LABEL}.eth`
+
 router.get('/race', async (req, res) => {
   const taskId = req.query.taskId
   if (!taskId) {
@@ -80,7 +85,7 @@ router.get('/race', async (req, res) => {
       const { verifyBounty } = await import('../../agent/lib/verifier.js')
       await verifyBounty({
         taskId,
-        onStep: (step, data) => send('step', { identity: 'verifier', step, data }),
+        onStep: (step, data) => send('step', { identity: MANAGER_NAME, step, data }),
       })
     }
 

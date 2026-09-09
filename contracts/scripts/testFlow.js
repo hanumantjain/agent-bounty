@@ -10,10 +10,22 @@ const hederaTestnet = defineChain({
   rpcUrls: { default: { http: [process.env.HEDERA_JSON_RPC_URL || 'https://testnet.hashio.io/api'] } },
 })
 
+function normalizeKey(raw) {
+  return raw.startsWith('0x') ? raw : `0x${raw}`
+}
+
+// Hashio's gas estimation has been observed to under-shoot for writes that move native HBAR
+// (releaseReward) — a transaction can be mined but revert, and waitForTransactionReceipt does
+// NOT throw for that. Every write here pins an explicit gas limit and checks status itself.
+async function writeAndConfirm(walletClient, publicClient, { address, abi, functionName, args, value }) {
+  const hash = await walletClient.writeContract({ address, abi, functionName, args, value, gas: 300_000n })
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  if (receipt.status !== 'success') throw new Error(`${functionName} reverted on-chain (tx ${hash})`)
+  return hash
+}
+
 async function main() {
-  const rawKey = process.env.DEPLOYER_PRIVATE_KEY
-  const privateKey = rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`
-  const account = privateKeyToAccount(privateKey)
+  const account = privateKeyToAccount(normalizeKey(process.env.DEPLOYER_PRIVATE_KEY))
 
   const { address } = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'build', 'deployment.json'), 'utf8'))
   const { abi } = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'build', 'BountyEscrow.json'), 'utf8'))
@@ -26,27 +38,25 @@ async function main() {
   const reward = parseEther('0.01')
 
   console.log(`1) createBounty(${taskId}) funded with 0.01 HBAR...`)
-  const createHash = await walletClient.writeContract({
+  const createHash = await writeAndConfirm(walletClient, publicClient, {
     address,
     abi,
     functionName: 'createBounty',
     args: [taskId, 'test: detect suspicious withdrawal pattern', 'withdrawal-anomaly'],
     value: reward,
   })
-  await publicClient.waitForTransactionReceipt({ hash: createHash })
   console.log(`   tx: ${createHash}`)
 
   const balance = await publicClient.getBalance({ address })
   console.log(`   contract balance: ${balance} wei`)
 
   console.log('2) claimBounty...')
-  const claimHash = await walletClient.writeContract({
+  const claimHash = await writeAndConfirm(walletClient, publicClient, {
     address,
     abi,
     functionName: 'claimBounty',
     args: [taskId],
   })
-  await publicClient.waitForTransactionReceipt({ hash: claimHash })
   console.log(`   tx: ${claimHash}`)
 
   console.log('2b) claiming the same bounty again (expect revert — already claimed)...')
@@ -59,24 +69,22 @@ async function main() {
   }
 
   console.log('3) submitAnswer...')
-  const submitHash = await walletClient.writeContract({
+  const submitHash = await writeAndConfirm(walletClient, publicClient, {
     address,
     abi,
     functionName: 'submitAnswer',
     args: [taskId, toHex('no anomaly detected')],
   })
-  await publicClient.waitForTransactionReceipt({ hash: submitHash })
   console.log(`   tx: ${submitHash}`)
 
   console.log('4) releaseReward(verified=true)...')
   const balanceBefore = await publicClient.getBalance({ address: account.address })
-  const releaseHash = await walletClient.writeContract({
+  const releaseHash = await writeAndConfirm(walletClient, publicClient, {
     address,
     abi,
     functionName: 'releaseReward',
     args: [taskId, true],
   })
-  await publicClient.waitForTransactionReceipt({ hash: releaseHash })
   console.log(`   tx: ${releaseHash}`)
 
   const balanceAfter = await publicClient.getBalance({ address: account.address })

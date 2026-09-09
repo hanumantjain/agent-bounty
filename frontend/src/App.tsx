@@ -89,6 +89,11 @@ function App() {
               <span className="h-1.5 w-1.5 rounded-full bg-dim" /> Hedera
             </div>
             <div className="rounded-xl border border-border-soft bg-inset p-3">
+              <div className="text-[10px] tracking-wide text-dim uppercase">Bounty Manager</div>
+              <div className="mt-0.5 truncate font-mono text-[13px] font-medium text-heading">agentbounty.eth</div>
+              <div className="mt-1 text-[11px] text-dim">Checks submissions, releases rewards</div>
+            </div>
+            <div className="rounded-xl border border-border-soft bg-inset p-3">
               <div className="mb-1 truncate font-mono text-[13px] font-medium text-heading">
                 {subname ?? `${activeIdentity}.eth`}
               </div>

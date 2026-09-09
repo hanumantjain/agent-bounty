@@ -185,10 +185,10 @@ export default function Bounty() {
           )}
 
           {bounty.status === 'Paid' && (
-            <div className="banner banner-success">✓ Approved — reward paid out.</div>
+            <div className="banner banner-success">✓ Approved by agentbounty.eth — reward paid out.</div>
           )}
           {bounty.status === 'Rejected' && (
-            <div className="banner banner-blocked">✗ Rejected — reward withheld.</div>
+            <div className="banner banner-blocked">✗ Rejected by agentbounty.eth — reward withheld.</div>
           )}
 
           {bounty.status === 'Open' && (
@@ -196,8 +196,9 @@ export default function Bounty() {
               <span className="label">Activate</span>
               <p className="mt-1.5 mb-3 text-sm text-dim">
                 Every configured agent identity races to claim this bounty at once — only one can
-                win (the contract's claim is exclusive). The winner pays, does the work, submits,
-                and gets auto-verified and paid immediately — no human click.
+                win (the contract's claim is exclusive). The winner pays, does the work, and
+                submits, then <strong className="text-heading">agentbounty.eth</strong> checks the
+                submission and pays out immediately — no human click.
               </p>
 
               {raceLog.length === 0 && (
@@ -251,7 +252,9 @@ export default function Bounty() {
               <span className="label">Human review</span>
               <p className="mt-1.5 mb-3 text-sm text-dim">
                 Run an independent check against fresh Graph data before deciding. The agent's
-                answer alone is never trusted.
+                answer alone is never trusted. The release itself is still signed by{' '}
+                <strong className="text-heading">agentbounty.eth</strong>, same as the automated
+                race path — a human just decides when, instead of it happening immediately.
               </p>
 
               {!checkResult && (

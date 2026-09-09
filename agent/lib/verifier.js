@@ -33,8 +33,10 @@ export async function checkAnswer(taskId) {
   return { matches, submitted, freshAnalysis }
 }
 
-// Releases or withholds the reward based on an explicit human decision. The contract doesn't
-// know a human was involved — this is just the one caller allowed to call releaseReward.
+// Releases or withholds the reward — signed by agentbounty.eth's account (the same shared
+// AGENT_HEDERA_* account that also creates bounties and deployed the contract; it's the one
+// address the contract's immutable `verifier` actually allows to call releaseReward). Used by
+// both the manual human-review decision and the race flow's auto-verify.
 export async function releaseDecision(taskId, approved) {
   const { account, publicClient, walletClient } = makeHederaEvmClients()
 
