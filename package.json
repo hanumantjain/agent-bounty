@@ -9,6 +9,7 @@
     "agent:start:blocked": "npm run start:blocked --prefix agent",
     "agent:create-bounty": "npm run create-bounty --prefix agent",
     "contracts:compile": "npm run compile --prefix contracts",
-    "contracts:deploy": "npm run deploy --prefix contracts"
+    "contracts:deploy": "npm run deploy --prefix contracts",
+    "test": "npm test --prefix agent && npm test --prefix backend"
   }
 }

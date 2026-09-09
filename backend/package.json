@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node --env-file=.env --env-file=../agent/.env index.js",
-    "dev": "node --watch --env-file=.env --env-file=../agent/.env index.js"
+    "dev": "node --watch --env-file=.env --env-file=../agent/.env index.js",
+    "test": "node --env-file=.env --test"
   },
   "keywords": [],
   "author": "",

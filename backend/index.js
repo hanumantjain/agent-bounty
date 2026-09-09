@@ -18,6 +18,10 @@ app.use('/api/data', dataRouter)
 app.use('/api/bounty', bountyRouter)
 app.use('/api/agent', agentRouter)
 
-app.listen(PORT, () => {
-  console.log(`Backend listening on http://localhost:${PORT}`)
-})
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Backend listening on http://localhost:${PORT}`)
+  })
+}
+
+module.exports = app
