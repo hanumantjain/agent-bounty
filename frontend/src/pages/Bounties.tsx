@@ -26,6 +26,14 @@ interface TaskTypeDef {
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 
+const TASK_ICONS: Record<string, string> = {
+  'withdrawal-anomaly': '↓',
+  'deposit-anomaly': '↑',
+  'borrow-anomaly': '⇄',
+  'repay-anomaly': '↩',
+  'liquidation-anomaly': '⚡',
+}
+
 export default function Bounties() {
   const { isRunning, currentStep, activeIdentity } = useAgentStatus()
   const [bounties, setBounties] = useState<Bounty[]>([])
@@ -56,7 +64,7 @@ export default function Bounties() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed to load bounties'))))
       .then((data: Bounty[]) => {
         setBounties(data)
-        setError(data.length === 0 ? 'No bounties yet' : null)
+        setError(null)
       })
       .catch((e) => setError(e.message))
   }
@@ -107,8 +115,8 @@ export default function Bounties() {
       </div>
 
       <div className="mb-8">
-        <h1>{isRunning ? 'Your agent is working autonomously.' : 'Bounty Marketplace'}</h1>
-        <p className="mt-1.5 text-sm text-dim">
+        <h1 className="text-3xl">{isRunning ? 'Your agent is working autonomously.' : 'Bounty Marketplace'}</h1>
+        <p className="mt-2 text-sm text-dim">
           {isRunning
             ? (currentStep ?? 'Analyzing live blockchain data within its ENSv2 permission boundary.')
             : 'Find and assign bounties to your AI agents.'}
@@ -176,13 +184,27 @@ export default function Bounties() {
         </p>
       )}
 
+      {!error && bounties.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-icon">◆</div>
+          <p className="text-sm font-medium text-heading">No bounties yet</p>
+          <p className="text-xs text-dim">
+            Post one above, or run <code>npm run create-bounty</code> in <code>agent/</code>
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
         {bounties.map((bounty) => (
-          <Link key={bounty.taskId} to={`/bounty/${bounty.taskId}`} className="card block hover:border-border-soft">
+          <Link
+            key={bounty.taskId}
+            to={`/bounty/${bounty.taskId}`}
+            className="card card-hover block no-underline"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3.5">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading">
-                  ◆
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading shadow-inner shadow-black/40">
+                  {TASK_ICONS[bounty.taskType] ?? '◆'}
                 </div>
                 <div>
                   <div className="mb-1.5 text-base font-semibold text-heading">{bounty.description}</div>

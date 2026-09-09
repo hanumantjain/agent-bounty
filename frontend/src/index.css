@@ -13,6 +13,10 @@
   --color-live-bg: rgba(34, 197, 94, 0.1);
   --color-danger: #ef4444;
   --color-danger-bg: rgba(239, 68, 68, 0.1);
+  --color-info: #60a5fa;
+  --color-info-bg: rgba(96, 165, 250, 0.1);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgba(251, 191, 36, 0.1);
 
   --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, Consolas, monospace;
@@ -27,6 +31,10 @@
 
   body {
     @apply m-0 bg-bg text-muted font-sans antialiased;
+    background-image:
+      radial-gradient(ellipse 70% 45% at 15% -10%, rgba(255, 255, 255, 0.05), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34, 197, 94, 0.04), transparent);
+    background-attachment: fixed;
   }
 
   #root {
@@ -56,7 +64,11 @@
 
 @layer components {
   .card {
-    @apply flex flex-col gap-5 rounded-2xl border border-border bg-surface p-6;
+    @apply relative flex flex-col gap-5 rounded-2xl border border-border bg-surface p-6 shadow-xl shadow-black/30;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-border-soft hover:shadow-2xl hover:shadow-black/40;
   }
 
   .label {
@@ -79,12 +91,24 @@
     @apply border-danger/30 bg-danger-bg text-danger;
   }
 
+  .badge-open {
+    @apply border-info/30 bg-info-bg text-info;
+  }
+
+  .badge-claimed {
+    @apply border-warning/30 bg-warning-bg text-warning;
+  }
+
+  .badge-submitted {
+    @apply border-info/30 bg-info-bg text-info;
+  }
+
   .tag {
     @apply rounded-md border border-border-soft bg-inset px-2 py-0.5 text-[11px] text-dim;
   }
 
   .btn-primary {
-    @apply inline-flex cursor-pointer items-center justify-center self-start rounded-lg bg-heading px-5 py-2.5 font-sans text-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-40;
+    @apply inline-flex cursor-pointer items-center justify-center self-start rounded-lg bg-heading px-5 py-2.5 font-sans text-sm font-semibold text-bg shadow-lg shadow-black/20 transition-all hover:-translate-y-px hover:opacity-90 hover:shadow-xl active:translate-y-0 disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-lg;
   }
 
   .btn-ghost {
@@ -96,15 +120,20 @@
   }
 
   .chip-active {
-    @apply border-border bg-surface text-heading hover:border-border;
+    @apply border-heading/40 bg-surface text-heading shadow-sm hover:border-heading/40;
   }
 
   .nav-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-dim no-underline transition-colors hover:bg-white/5 hover:text-heading;
+    @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-dim no-underline transition-colors hover:bg-white/5 hover:text-heading;
   }
 
-  .nav-item.active {
-    @apply bg-white/5 text-heading;
+  .nav-item-active {
+    @apply bg-gradient-to-r from-white/[0.08] to-transparent text-heading;
+  }
+
+  .nav-item-active::before {
+    content: '';
+    @apply absolute top-1/2 left-0 h-4.5 w-0.5 -translate-y-1/2 rounded-full bg-heading;
   }
 
   .banner {
@@ -117,6 +146,14 @@
 
   .banner-success {
     @apply border border-live/30 bg-live-bg text-live;
+  }
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-surface/40 px-6 py-16 text-center;
+  }
+
+  .empty-state-icon {
+    @apply flex h-12 w-12 items-center justify-center rounded-full border border-border bg-inset text-xl text-dim;
   }
 
   .pulse-dot {

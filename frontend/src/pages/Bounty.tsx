@@ -34,6 +34,13 @@ interface RaceResult {
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 
+function identityBadgeClass(identity: string) {
+  if (identity.startsWith('agentbounty')) return 'border-live/30 bg-live-bg text-live'
+  if (identity === 'intern') return 'border-warning/30 bg-warning-bg text-warning'
+  if (identity === 'system') return 'border-danger/30 bg-danger-bg text-danger'
+  return 'border-info/30 bg-info-bg text-info'
+}
+
 export default function Bounty() {
   const { taskId } = useParams<{ taskId?: string }>()
   const [bounty, setBounty] = useState<BountyDetails | null>(null)
@@ -136,7 +143,7 @@ export default function Bounty() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
-        <h1>Bounty Details</h1>
+        <h1 className="text-3xl">Bounty Details</h1>
         <p className="mt-1 text-sm text-dim">Task, submission, human review and payout status.</p>
       </div>
 
@@ -146,7 +153,7 @@ export default function Bounty() {
         <div className="card">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading shadow-inner shadow-black/40">
                 ▤
               </div>
               <div className="text-base font-semibold text-heading">{bounty.description}</div>
@@ -221,17 +228,19 @@ export default function Bounty() {
                     </div>
                   )}
 
-                  <div className="max-h-[30vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5">
+                  <div className="max-h-[30vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5 shadow-lg shadow-black/20">
                     <div className="flex flex-col">
                       {raceLog.map((entry, i) => (
                         <div
                           key={i}
-                          className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 last:border-0"
+                          className="flex items-center gap-3 border-b border-border-soft py-2.5 last:border-0"
                         >
-                          <span className="flex items-center gap-2 font-mono text-[12px] text-muted">
-                            <span className="chip">{entry.identity}</span>
-                            {entry.step}
+                          <span
+                            className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[11px] ${identityBadgeClass(entry.identity)}`}
+                          >
+                            {entry.identity}
                           </span>
+                          <span className="font-mono text-[12px] text-muted">{entry.step}</span>
                         </div>
                       ))}
                       {racing && (

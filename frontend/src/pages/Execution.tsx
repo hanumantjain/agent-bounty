@@ -170,7 +170,7 @@ export default function Execution() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
-        <h1>Live Execution</h1>
+        <h1 className="text-3xl">Live Execution</h1>
         <p className="mt-1.5 text-sm text-dim">Watch the agent discover, decide, claim, pay and work — in real time.</p>
       </div>
 
@@ -219,11 +219,11 @@ export default function Execution() {
               <div key={m.key} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] transition-all ${
                       m.ok === false
                         ? 'border-danger/30 bg-danger-bg text-danger'
                         : m.reached
-                          ? 'border-live/30 bg-live-bg text-live'
+                          ? 'border-live/30 bg-live-bg text-live shadow-[0_0_12px_rgba(34,197,94,0.35)]'
                           : 'border-border bg-inset text-dim'
                     }`}
                   >
@@ -242,9 +242,18 @@ export default function Execution() {
       )}
 
       {/* Raw activity log */}
-      <div className="max-h-[40vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5">
+      {log.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">▶</div>
+          <p className="text-sm font-medium text-heading">Ready when you are</p>
+          <p className="text-xs text-dim">
+            Pick an identity above and click <span className="text-heading">Run Agent</span> to watch it work in
+            real time.
+          </p>
+        </div>
+      ) : (
+      <div className="max-h-[40vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5 shadow-lg shadow-black/20">
         <div className="flex flex-col">
-          {log.length === 0 && <p className="py-4 text-sm text-dim">Click "Run Agent" to start.</p>}
           {log.map((entry, i) => (
             <div key={i} className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 last:border-0">
               <span className="font-mono text-[12px] text-muted">{entry.step}</span>
@@ -259,6 +268,7 @@ export default function Execution() {
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }
