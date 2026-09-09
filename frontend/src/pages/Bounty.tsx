@@ -40,7 +40,7 @@ export default function Bounty() {
         <div className="card">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-accent/40 bg-accent/15 text-lg text-accent">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading">
                 ▤
               </div>
               <div className="text-base font-semibold text-heading">{bounty.description}</div>
@@ -49,19 +49,19 @@ export default function Bounty() {
           </div>
 
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
-            <span className="text-[11px] tracking-wider text-dim uppercase">Task ID</span>
+            <span className="label">Task ID</span>
             <span className="font-mono text-xs">{bounty.taskId}</span>
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
-            <span className="text-[11px] tracking-wider text-dim uppercase">Creator</span>
+            <span className="label">Creator</span>
             <span className="font-mono text-xs">{bounty.creator}</span>
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
-            <span className="text-[11px] tracking-wider text-dim uppercase">Reward</span>
+            <span className="label">Reward</span>
             <span>{hbar(bounty.rewardTinybars)} HBAR</span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-[11px] tracking-wider text-dim uppercase">Agent</span>
+            <span className="label">Agent</span>
             <span className="font-mono text-xs">{bounty.agent ?? '—'}</span>
           </div>
 
