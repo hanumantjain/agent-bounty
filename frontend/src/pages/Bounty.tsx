@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 interface BountyDetails {
@@ -19,6 +19,18 @@ interface CheckResult {
   freshAnalysis: { verdict: string; largest: unknown }
 }
 
+interface RaceLogEntry {
+  identity: string
+  step: string
+  data: Record<string, unknown>
+  at: number
+}
+
+interface RaceResult {
+  winner: string | null
+  outcomes: { identity: string; outcome: string }[]
+}
+
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 
@@ -30,6 +42,11 @@ export default function Bounty() {
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null)
   const [checkError, setCheckError] = useState<string | null>(null)
   const [deciding, setDeciding] = useState(false)
+
+  const [racing, setRacing] = useState(false)
+  const [raceLog, setRaceLog] = useState<RaceLogEntry[]>([])
+  const [raceResult, setRaceResult] = useState<RaceResult | null>(null)
+  const raceSourceRef = useRef<EventSource | null>(null)
 
   const load = () => {
     const url = taskId ? `/api/bounty/${taskId}` : '/api/bounty/current'
@@ -45,6 +62,10 @@ export default function Bounty() {
 
   useEffect(load, [taskId])
 
+  useEffect(() => {
+    return () => raceSourceRef.current?.close()
+  }, [])
+
   const runCheck = async () => {
     if (!bounty) return
     setChecking(true)
@@ -58,6 +79,40 @@ export default function Bounty() {
     } finally {
       setChecking(false)
     }
+  }
+
+  const activateBounty = () => {
+    if (!bounty) return
+    setRaceLog([])
+    setRaceResult(null)
+    setRacing(true)
+
+    const source = new EventSource(`/api/agent/race?taskId=${bounty.taskId}`)
+    raceSourceRef.current = source
+
+    source.addEventListener('step', (e) => {
+      const { identity, step, data } = JSON.parse(e.data)
+      setRaceLog((prev) => [...prev, { identity, step, data, at: Date.now() }])
+    })
+
+    source.addEventListener('race-result', (e) => {
+      setRaceResult(JSON.parse(e.data))
+    })
+
+    source.addEventListener('done', () => {
+      source.close()
+      setRacing(false)
+      load()
+    })
+
+    source.addEventListener('error', (e: MessageEvent) => {
+      try {
+        const { message } = JSON.parse(e.data)
+        setRaceLog((prev) => [...prev, { identity: 'system', step: 'error', data: { message }, at: Date.now() }])
+      } catch {
+        // connection-level error, ignore
+      }
+    })
   }
 
   const decide = async (approved: boolean) => {
@@ -134,6 +189,61 @@ export default function Bounty() {
           )}
           {bounty.status === 'Rejected' && (
             <div className="banner banner-blocked">✗ Rejected — reward withheld.</div>
+          )}
+
+          {bounty.status === 'Open' && (
+            <div>
+              <span className="label">Activate</span>
+              <p className="mt-1.5 mb-3 text-sm text-dim">
+                Every configured agent identity races to claim this bounty at once — only one can
+                win (the contract's claim is exclusive). The winner pays, does the work, submits,
+                and gets auto-verified and paid immediately — no human click.
+              </p>
+
+              {raceLog.length === 0 && (
+                <button className="btn-primary" onClick={activateBounty} disabled={racing}>
+                  {racing ? 'Racing…' : '⚡ Activate Bounty'}
+                </button>
+              )}
+
+              {raceLog.length > 0 && (
+                <div className="mt-1 flex flex-col gap-3">
+                  {raceResult && (
+                    <div
+                      className={`rounded-lg border px-4 py-3 text-sm ${
+                        raceResult.winner ? 'border-live/30 bg-live-bg text-live' : 'border-danger/30 bg-danger-bg text-danger'
+                      }`}
+                    >
+                      {raceResult.winner
+                        ? `✓ ${raceResult.winner} won the race and was auto-paid`
+                        : '✕ No identity was able to claim this bounty'}
+                    </div>
+                  )}
+
+                  <div className="max-h-[30vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5">
+                    <div className="flex flex-col">
+                      {raceLog.map((entry, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 last:border-0"
+                        >
+                          <span className="flex items-center gap-2 font-mono text-[12px] text-muted">
+                            <span className="chip">{entry.identity}</span>
+                            {entry.step}
+                          </span>
+                        </div>
+                      ))}
+                      {racing && (
+                        <div className="flex items-center gap-2 py-2.5">
+                          <span className="pulse-dot" />
+                          <span className="font-mono text-[12px] text-dim">racing…</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {bounty.status === 'Submitted' && (

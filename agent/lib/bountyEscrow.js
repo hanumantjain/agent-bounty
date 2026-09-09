@@ -23,6 +23,20 @@ const BOUNTY_CREATED_EVENT = parseAbiItem(
 export const BountyStatus = { None: 0, Open: 1, Claimed: 2, Submitted: 3, Paid: 4, Rejected: 5 }
 export const BountyStatusNames = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
 
+/// Resolves which Hedera account an identity should sign with. Falls back to the shared
+/// AGENT_HEDERA_* trio when an identity has no dedicated account configured — this keeps every
+/// existing single-identity flow working unchanged, and lets a "race to claim" between
+/// identities become a real race between independent signers once dedicated accounts are set.
+export function resolveIdentityCreds(identity) {
+  const upper = identity.toUpperCase()
+  const prefix = process.env[`${upper}_HEDERA_PRIVATE_KEY`] ? upper : 'AGENT'
+  return {
+    accountId: process.env[`${prefix}_HEDERA_ACCOUNT_ID`],
+    privateKeyEnvVar: `${prefix}_HEDERA_PRIVATE_KEY`,
+    keyType: process.env[`${prefix}_HEDERA_KEY_TYPE`] || 'ED25519',
+  }
+}
+
 export function makeHederaEvmClients(privateKeyEnvVar = 'AGENT_HEDERA_PRIVATE_KEY') {
   const rawKey = process.env[privateKeyEnvVar]
   const privateKey = rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`
@@ -42,6 +56,21 @@ export async function getBounty(publicClient, contractAddress, taskId) {
   })
 }
 
+// Hedera's JSON-RPC relay (Hashio) has been observed to under-estimate gas for writes that
+// include a native HBAR transfer (releaseReward) — the pre-flight simulation viem runs inside
+// writeContract passes, but the transaction is then mined with too little gas and reverts with
+// INSUFFICIENT_GAS. waitForTransactionReceipt does NOT throw on a reverted-but-mined tx, so
+// every write here pins a generous explicit gas limit and checks receipt.status itself —
+// otherwise a silent on-chain failure would be treated as success by every caller.
+export async function writeAndConfirm(walletClient, publicClient, { address, abi, functionName, args, account, value }) {
+  const hash = await walletClient.writeContract({ address, abi, functionName, args, account, value, gas: 300_000n })
+  const receipt = await publicClient.waitForTransactionReceipt({ hash })
+  if (receipt.status !== 'success') {
+    throw new Error(`${functionName} reverted on-chain (tx ${hash})`)
+  }
+  return hash
+}
+
 export async function createBounty({
   walletClient,
   publicClient,
@@ -52,7 +81,7 @@ export async function createBounty({
   taskType,
 }) {
   const taskId = keccak256(stringToHex(`bounty-${Date.now()}`))
-  const hash = await walletClient.writeContract({
+  const hash = await writeAndConfirm(walletClient, publicClient, {
     address: contractAddress,
     abi: BOUNTY_ESCROW_ABI,
     functionName: 'createBounty',
@@ -60,32 +89,28 @@ export async function createBounty({
     value: parseEther(String(rewardHbar)),
     account,
   })
-  await publicClient.waitForTransactionReceipt({ hash })
   return { taskId, hash }
 }
 
 export async function claimBounty({ walletClient, publicClient, contractAddress, account, taskId }) {
-  const hash = await walletClient.writeContract({
+  const hash = await writeAndConfirm(walletClient, publicClient, {
     address: contractAddress,
     abi: BOUNTY_ESCROW_ABI,
     functionName: 'claimBounty',
     args: [taskId],
     account,
   })
-  await publicClient.waitForTransactionReceipt({ hash })
   return hash
 }
 
 export async function submitAnswer({ walletClient, publicClient, contractAddress, account, taskId, answerHex }) {
-  const hash = await walletClient.writeContract({
+  return writeAndConfirm(walletClient, publicClient, {
     address: contractAddress,
     abi: BOUNTY_ESCROW_ABI,
     functionName: 'submitAnswer',
     args: [taskId, answerHex],
     account,
   })
-  await publicClient.waitForTransactionReceipt({ hash })
-  return hash
 }
 
 // Hashio's `eth_getLogs` rejects ranges beyond a fixed block-count cap (empirically confirmed

@@ -92,8 +92,23 @@ npm run agent:start:blocked     # intern identity: blocked before any payment
 
 Or drive the whole thing from the dashboard at `http://localhost:5173` — the **Live Execution** screen runs the same flow with a live step-by-step view.
 
+## 7. (Optional) Give each identity its own Hedera account, for the "Activate Bounty" race
+
+Every bounty's Details page has an **Activate Bounty** button — it makes every configured identity (`researcher`, `intern`) attempt to claim that bounty at once, and whoever's `claimBounty` transaction lands first wins (the escrow contract only ever allows one claimant per bounty). Without this step, both identities sign with the same shared account from step 1, so the "race" is really one wallet against itself. To make it a real race between independent signers:
+
+1. Create two more Hedera testnet accounts the same way as step 1 (portal.hedera.com, ECDSA key type, auto-funded by the portal).
+2. Add them to `agent/.env`:
+   ```
+   RESEARCHER_HEDERA_ACCOUNT_ID=
+   RESEARCHER_HEDERA_PRIVATE_KEY=
+   INTERN_HEDERA_ACCOUNT_ID=
+   INTERN_HEDERA_PRIVATE_KEY=
+   ```
+Any identity left unset falls back to the shared `AGENT_HEDERA_*` account, so this can be done incrementally.
+
 ## Troubleshooting
 
 - **ISP blocking `app.ens.dev` / `manager.ens.dev`**: not needed — `setup-ens` never touches the ENS web app, it calls the contracts directly.
-- **`eth_getLogs` range error from the Hedera relay**: already handled — bounty discovery windows to the last 5000 blocks rather than querying from block 0.
-- **Facilitator payment payload errors**: the Blocky402 facilitator expects `paymentPayload.accepted` to duplicate the payment requirements — already handled in `agent/pay-test.js` / `agent/lib/runAgent.js`, but worth knowing if you're extending this against the raw facilitator API yourself.
+- **`eth_getLogs` range error from the Hedera relay**: already handled — bounty discovery windows to the last 200,000 blocks (empirically confirmed safely under Hashio's actual range cap) rather than querying from block 0.
+- **Facilitator payment payload errors**: the Blocky402 facilitator expects `paymentPayload.accepted` to duplicate the payment requirements — already handled in `agent/lib/runAgent.js`, but worth knowing if you're extending this against the raw facilitator API yourself.
+- **A write transaction reverts with `INSUFFICIENT_GAS`**: Hashio's gas estimation has been observed to under-shoot for calls that include a native HBAR transfer (`releaseReward`). Already handled — every contract write goes through `agent/lib/bountyEscrow.js`'s `writeAndConfirm`, which pins an explicit gas limit and checks the receipt status itself rather than trusting `waitForTransactionReceipt` not to silently return a reverted-but-mined transaction.

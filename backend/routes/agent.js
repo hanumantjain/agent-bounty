@@ -32,4 +32,65 @@ router.get('/run', async (req, res) => {
   }
 })
 
+// Every configured identity attempts the same bounty at once. The contract's exclusive
+// claimBounty (see contracts/BountyEscrow.sol) already guarantees only one of them can ever
+// succeed — that's the "race." Whoever wins gets auto-verified and paid immediately with no
+// human click, deliberately different from the manual review path in routes/bounty.js.
+const RACE_IDENTITIES = ['researcher', 'intern']
+
+router.get('/race', async (req, res) => {
+  const taskId = req.query.taskId
+  if (!taskId) {
+    res.status(400).json({ error: 'taskId is required' })
+    return
+  }
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  })
+  res.flushHeaders()
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\n`)
+    res.write(`data: ${JSON.stringify(data, (_, v) => (typeof v === 'bigint' ? v.toString() : v))}\n\n`)
+  }
+
+  try {
+    const { runAgent } = await import('../../agent/lib/runAgent.js')
+
+    const settled = await Promise.allSettled(
+      RACE_IDENTITIES.map((identity) =>
+        runAgent({
+          identity,
+          taskId,
+          onStep: (step, data) => send('step', { identity, step, data }),
+        }),
+      ),
+    )
+
+    const outcomes = settled.map((r, i) => ({
+      identity: RACE_IDENTITIES[i],
+      ...(r.status === 'fulfilled' ? r.value : { outcome: 'error', error: r.reason.message }),
+    }))
+
+    const winner = outcomes.find((o) => o.outcome === 'submitted')
+    if (winner) {
+      const { verifyBounty } = await import('../../agent/lib/verifier.js')
+      await verifyBounty({
+        taskId,
+        onStep: (step, data) => send('step', { identity: 'verifier', step, data }),
+      })
+    }
+
+    send('race-result', { winner: winner?.identity ?? null, outcomes })
+    send('done', {})
+  } catch (err) {
+    send('error', { message: err.message })
+  } finally {
+    res.end()
+  }
+})
+
 module.exports = router

@@ -1,7 +1,7 @@
 import { fetchRecentEntityIndependently } from './verifyGraph.js'
 import { analyzeAmounts } from './analyze.js'
 import { getTaskDefinition } from './tasks.js'
-import { makeHederaEvmClients, getBounty, BOUNTY_ESCROW_ABI, BountyStatus } from './bountyEscrow.js'
+import { makeHederaEvmClients, getBounty, writeAndConfirm, BOUNTY_ESCROW_ABI, BountyStatus } from './bountyEscrow.js'
 
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
 
@@ -38,14 +38,13 @@ export async function checkAnswer(taskId) {
 export async function releaseDecision(taskId, approved) {
   const { account, publicClient, walletClient } = makeHederaEvmClients()
 
-  const hash = await walletClient.writeContract({
+  const hash = await writeAndConfirm(walletClient, publicClient, {
     address: BOUNTY_CONTRACT_ADDRESS,
     abi: BOUNTY_ESCROW_ABI,
     functionName: 'releaseReward',
     args: [taskId, approved],
     account,
   })
-  await publicClient.waitForTransactionReceipt({ hash })
 
   return { approved, releaseTxHash: hash }
 }

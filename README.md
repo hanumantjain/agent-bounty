@@ -53,6 +53,10 @@ The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky
 
 If every open bounty is either priced above the agent's authorized limit or an unrecognized task type — even for an otherwise fully-trusted identity — it never claims anything, and no payment is ever attempted. No funds move, no data is purchased, no submission is made; the step log shows exactly why each candidate was skipped. See it live on the **Live Execution** dashboard screen.
 
+### Or: activate a bounty and let agents race for it
+
+Any **Open** bounty's Details page has an **Activate Bounty** button — an alternate, competitive path to the same flow above. Every configured identity attempts to claim that one bounty at once; the contract's exclusive `claimBounty` guarantees only one transaction actually succeeds, so whichever identity is both eligible (recognizes the task, within its spending limit) and fastest wins. The loser(s) are left exactly as they started — no funds spent, confirmed via the live step log showing why each one didn't win. The winner pays, works, and submits exactly as above, but the reward is **auto-verified and released immediately** — no human click — since a race is meant to resolve on its own. The manual human-review path (step 9–10 above) still applies to every bounty worked through the ordinary "Run Agent" flow instead.
+
 ---
 
 ## Architecture

@@ -5,7 +5,15 @@ import { resolveSpendingLimit } from './ens.js'
 import { checkAffordability } from './decide.js'
 import { analyzeAmounts } from './analyze.js'
 import { getTaskDefinition } from './tasks.js'
-import { makeHederaEvmClients, discoverOpenBounties, claimBounty, submitAnswer } from './bountyEscrow.js'
+import {
+  makeHederaEvmClients,
+  resolveIdentityCreds,
+  discoverOpenBounties,
+  getBounty,
+  BountyStatus,
+  claimBounty,
+  submitAnswer,
+} from './bountyEscrow.js'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
 const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
@@ -13,14 +21,23 @@ const PARENT_LABEL = process.env.ENS_PARENT_LABEL
 const SPENDING_LIMIT_KEY = process.env.ENS_SPENDING_LIMIT_KEY || 'agent.spending.limit'
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
 
-export async function runAgent({ identity, onStep = () => {} }) {
+export async function runAgent({ identity, taskId: targetTaskId, onStep = () => {} }) {
   const subname = `${identity}.${PARENT_LABEL}.eth`
   onStep('identity', { subname })
 
-  const { account, publicClient: hederaEvm, walletClient } = makeHederaEvmClients()
+  const creds = resolveIdentityCreds(identity)
+  const { account, publicClient: hederaEvm, walletClient } = makeHederaEvmClients(creds.privateKeyEnvVar)
 
   onStep('discover', { contract: BOUNTY_CONTRACT_ADDRESS })
-  const candidates = await discoverOpenBounties(hederaEvm, BOUNTY_CONTRACT_ADDRESS)
+  let candidates
+  if (targetTaskId) {
+    // Scoped to one specific bounty — used by the "activate this bounty" race, where several
+    // identities are each given exactly this taskId and nothing else to consider.
+    const bounty = await getBounty(hederaEvm, BOUNTY_CONTRACT_ADDRESS, targetTaskId)
+    candidates = bounty.status === BountyStatus.Open ? [{ taskId: targetTaskId, bounty }] : []
+  } else {
+    candidates = await discoverOpenBounties(hederaEvm, BOUNTY_CONTRACT_ADDRESS)
+  }
   if (candidates.length === 0) {
     onStep('no-bounty', {})
     return { outcome: 'no-bounty' }
@@ -93,9 +110,9 @@ export async function runAgent({ identity, onStep = () => {} }) {
         network: process.env.HEDERA_NETWORK || 'testnet',
       },
       {
-        accountId: process.env.AGENT_HEDERA_ACCOUNT_ID,
-        privateKey: process.env.AGENT_HEDERA_PRIVATE_KEY,
-        keyType: process.env.AGENT_HEDERA_KEY_TYPE || 'ED25519',
+        accountId: creds.accountId,
+        privateKey: process.env[creds.privateKeyEnvVar],
+        keyType: creds.keyType,
       },
     )
 
