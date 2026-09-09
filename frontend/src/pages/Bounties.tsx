@@ -28,7 +28,7 @@ const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toStri
 
 export default function Bounties() {
   const { isRunning, currentStep, activeIdentity } = useAgentStatus()
-  const [bounty, setBounty] = useState<Bounty | null>(null)
+  const [bounties, setBounties] = useState<Bounty[]>([])
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -51,17 +51,17 @@ export default function Bounties() {
       .catch(() => setTaskTypes({}))
   }, [])
 
-  const loadBounty = () => {
-    fetch('/api/bounty/current')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no bounty found'))))
-      .then((data) => {
-        setBounty(data)
-        setError(null)
+  const loadBounties = () => {
+    fetch('/api/bounty/list')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed to load bounties'))))
+      .then((data: Bounty[]) => {
+        setBounties(data)
+        setError(data.length === 0 ? 'No bounties yet' : null)
       })
       .catch((e) => setError(e.message))
   }
 
-  useEffect(loadBounty, [isRunning])
+  useEffect(loadBounties, [isRunning])
 
   useEffect(() => {
     fetch(`/api/bounty/identity/${activeIdentity}`)
@@ -83,7 +83,7 @@ export default function Bounties() {
       setDescription('')
       setRewardHbar('0.05')
       setShowForm(false)
-      loadBounty()
+      loadBounties()
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -163,55 +163,56 @@ export default function Bounties() {
         </div>
       )}
 
+      {identity && (
+        <p className="mb-4 text-xs text-dim">
+          {activeIdentity} identity spend limit: <span className="text-heading">{identity.spendingLimitHbar} HBAR</span> —
+          the agent skips any bounty priced above this when it runs.
+        </p>
+      )}
+
       {error && (
         <p className="text-sm text-danger">
           {error} — post one above, or run <code>npm run create-bounty</code> in <code>agent/</code>
         </p>
       )}
 
-      {bounty && (
-        <div className="card">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading">
-                ◆
-              </div>
-              <div>
-                <div className="mb-1.5 text-base font-semibold text-heading">{bounty.description}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="tag">{taskTypes[bounty.taskType]?.label ?? bounty.taskType}</span>
+      <div className="flex flex-col gap-4">
+        {bounties.map((bounty) => (
+          <Link key={bounty.taskId} to={`/bounty/${bounty.taskId}`} className="card block hover:border-border-soft">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-inset text-lg text-heading">
+                  ◆
+                </div>
+                <div>
+                  <div className="mb-1.5 text-base font-semibold text-heading">{bounty.description}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="tag">{taskTypes[bounty.taskType]?.label ?? bounty.taskType}</span>
+                  </div>
                 </div>
               </div>
+              <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
             </div>
-            <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
-          </div>
 
-          <div className="grid grid-cols-2 gap-6 border-t border-border pt-5 sm:grid-cols-4">
-            <div className="flex flex-col gap-1">
-              <span className="label">Reward</span>
-              <span className="text-xl font-bold text-heading">{hbar(bounty.rewardTinybars)} HBAR</span>
+            <div className="grid grid-cols-2 gap-6 border-t border-border pt-5 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <span className="label">Reward</span>
+                <span className="text-xl font-bold text-heading">{hbar(bounty.rewardTinybars)} HBAR</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="label">Data cost</span>
+                <span className="text-xl font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="label">Agent</span>
+                <span className="font-mono text-xs text-heading">
+                  {bounty.agent ? `${bounty.agent.slice(0, 10)}…` : '—'}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="label">Data cost</span>
-              <span className="text-xl font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="label">Spend limit</span>
-              <span className="text-xl font-bold text-heading">
-                {identity ? `${identity.spendingLimitHbar} HBAR` : '—'}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="label">Status</span>
-              <span className="text-xl font-bold text-heading">{bounty.status}</span>
-            </div>
-          </div>
-
-          <Link to="/execution" className="btn-primary">
-            Run Agent →
           </Link>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 }

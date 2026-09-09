@@ -11,8 +11,14 @@ interface LogEntry {
 const IDENTITIES = ['researcher', 'intern']
 const TINYBARS_PER_HBAR = 100_000_000
 
+// Scans from the end backward: once the agent commits to a winning candidate among several
+// open bounties, every subsequent entry for a given step belongs to that candidate — an
+// earlier candidate considered (and skipped) first would otherwise shadow the real data.
 function find(log: LogEntry[], step: string) {
-  return log.find((e) => e.step === step)?.data
+  for (let i = log.length - 1; i >= 0; i--) {
+    if (log[i].step === step) return log[i].data
+  }
+  return undefined
 }
 
 function relativeTime(at: number, now: number) {
@@ -28,7 +34,7 @@ export default function Execution() {
   const [log, setLog] = useState<LogEntry[]>([])
   const [running, setRunningLocal] = useState(false)
   const [now, setNow] = useState(() => Date.now())
-  const [finalState, setFinalState] = useState<'idle' | 'blocked' | 'submitted' | 'unsupported-task'>('idle')
+  const [finalState, setFinalState] = useState<'idle' | 'no-eligible-bounty' | 'no-bounty' | 'submitted'>('idle')
   const sourceRef = useRef<EventSource | null>(null)
   const logRef = useRef<LogEntry[]>([])
 
@@ -64,9 +70,9 @@ export default function Execution() {
 
     source.addEventListener('agent-result', (e) => {
       const result = JSON.parse(e.data)
-      if (result.outcome === 'blocked') setFinalState('blocked')
+      if (result.outcome === 'no-eligible-bounty') setFinalState('no-eligible-bounty')
+      if (result.outcome === 'no-bounty') setFinalState('no-bounty')
       if (result.outcome === 'submitted') setFinalState('submitted')
-      if (result.outcome === 'unsupported-task') setFinalState('unsupported-task')
     })
 
     source.addEventListener('error', (e: MessageEvent) => {
@@ -98,7 +104,7 @@ export default function Execution() {
 
   const priceData = find(log, 'price') as { priceTinybars?: string } | undefined
   const limitData = find(log, 'spending-limit') as { limitHbar?: number } | undefined
-  const allowedData = (find(log, 'allowed') ?? find(log, 'blocked')) as
+  const allowedData = (find(log, 'allowed') ?? find(log, 'skip-blocked')) as
     | { allowed?: boolean; priceHbar?: number; limitHbar?: number }
     | undefined
   const claimedData = find(log, 'claimed') as { claimTxHash?: string } | undefined
@@ -184,14 +190,14 @@ export default function Execution() {
         </button>
       </div>
 
-      {finalState === 'blocked' && (
-        <div className="banner banner-blocked">
-          ⛔ BLOCKED — price exceeded this identity's spending limit. No claim or payment was attempted.
-        </div>
+      {finalState === 'no-bounty' && (
+        <div className="banner banner-blocked">⛔ No open bounties exist right now.</div>
       )}
-      {finalState === 'unsupported-task' && (
+      {finalState === 'no-eligible-bounty' && (
         <div className="banner banner-blocked">
-          ⛔ UNSUPPORTED — this agent doesn't recognize the bounty's task type. No claim or payment was attempted.
+          ⛔ No open bounty was eligible — every candidate was either an unsupported task type or priced above
+          this identity's spending limit. See the step log below for the reason per bounty. No claim or payment
+          was attempted.
         </div>
       )}
       {finalState === 'submitted' && (
@@ -259,20 +265,23 @@ export default function Execution() {
 
 const STEP_META: Record<string, { label: string }> = {
   identity: { label: 'Resolving agent identity' },
-  discover: { label: 'Discovering open bounty' },
-  'bounty-found': { label: 'Bounty found' },
-  'task-recognized': { label: 'Task type recognized' },
-  'unsupported-task': { label: 'Task type not supported — stopping' },
-  'probe-price': { label: 'Checking data price (402)' },
-  price: { label: 'Price received' },
+  discover: { label: 'Discovering open bounties' },
+  'bounties-found': { label: 'Open bounties found' },
   'resolve-ens': { label: 'Reading ENSv2 policy' },
   'spending-limit': { label: 'Spending limit resolved' },
+  considering: { label: 'Considering a candidate bounty' },
+  'task-recognized': { label: 'Task type recognized' },
+  'skip-unsupported-task': { label: 'Skipping — task type not supported' },
+  'probe-price': { label: 'Checking data price (402)' },
+  price: { label: 'Price received' },
   allowed: { label: 'ENSv2 permission granted — deciding to claim' },
-  blocked: { label: 'ENSv2 permission denied' },
+  'skip-blocked': { label: 'Skipping — over spending limit' },
   claiming: { label: 'Claiming bounty on-chain' },
+  'skip-claim-failed': { label: 'Skipping — already claimed by another agent' },
   claimed: { label: 'Bounty claimed' },
   paying: { label: 'Paying via Hedera x402' },
   paid: { label: 'Payment settled, data received' },
   analysis: { label: 'Analyzing blockchain data' },
   submitted: { label: 'Answer submitted on-chain' },
+  'no-eligible-bounty': { label: 'No eligible bounty found' },
 }

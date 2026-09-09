@@ -88,9 +88,15 @@ export async function submitAnswer({ walletClient, publicClient, contractAddress
   return hash
 }
 
+// Hashio's `eth_getLogs` rejects ranges beyond a fixed block-count cap (empirically confirmed
+// on Hedera testnet: 250,000 blocks succeeds, 300,000 fails with "method not supported").
+// 200,000 stays safely under that limit while covering many hours of testnet block production —
+// wide enough that a bounty doesn't silently fall out of discovery shortly after creation.
+const LOG_WINDOW_BLOCKS = 200_000n
+
 async function recentBountyCreatedLogs(publicClient, contractAddress) {
   const latestBlock = await publicClient.getBlockNumber()
-  const fromBlock = latestBlock > 5000n ? latestBlock - 5000n : 0n
+  const fromBlock = latestBlock > LOG_WINDOW_BLOCKS ? latestBlock - LOG_WINDOW_BLOCKS : 0n
   return publicClient.getLogs({
     address: contractAddress,
     event: BOUNTY_CREATED_EVENT,
@@ -118,4 +124,23 @@ export async function discoverLatestBounty(publicClient, contractAddress) {
   const taskId = logs[logs.length - 1].args.taskId
   const bounty = await getBounty(publicClient, contractAddress, taskId)
   return { taskId, bounty }
+}
+
+/// All bounties regardless of status, oldest first — the full on-chain history.
+export async function discoverAllBounties(publicClient, contractAddress) {
+  const logs = await recentBountyCreatedLogs(publicClient, contractAddress)
+  const results = []
+  for (let i = 0; i < logs.length; i++) {
+    const taskId = logs[i].args.taskId
+    const bounty = await getBounty(publicClient, contractAddress, taskId)
+    results.push({ taskId, bounty })
+  }
+  return results
+}
+
+/// Every currently-open bounty, oldest first — the agent's real candidate pool, not just
+/// the newest one. Oldest-first so the marketplace queue is served fairly.
+export async function discoverOpenBounties(publicClient, contractAddress) {
+  const all = await discoverAllBounties(publicClient, contractAddress)
+  return all.filter(({ bounty }) => bounty.status === BountyStatus.Open)
 }

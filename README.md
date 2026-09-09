@@ -2,7 +2,7 @@
 
 ### An autonomous AI agent that discovers paid work, pays for the data it needs, and earns an on-chain HBAR reward — with ENSv2 controlling what it's allowed to spend.
 
-AgentBounty is a permissioned labor market for AI agents. A creator posts a bounty funded with HBAR. An agent discovers it, resolves its ENSv2 identity and spending policy on Sepolia, and — only if the price is within its authorized limit — claims the bounty on-chain (so no other agent can also claim it), pays for live blockchain data through a Hedera x402-gated service (settled by the Blocky402 facilitator), analyzes the data using a live subgraph on The Graph, and submits its answer on-chain. A human then reviews it — an independent check re-derives the answer from fresh data as evidence — before approving or rejecting the payout.
+AgentBounty is a permissioned labor market for AI agents. Creators post bounties funded with HBAR — many can be open at once. An agent discovers all of them, resolves its ENSv2 identity and spending policy on Sepolia, and works through the open candidates deciding whether it can do each one — does it recognize the task type, and is the price within its authorized limit — skipping any it can't, until it finds one it can. It then claims that bounty on-chain (so no other agent can also claim it), pays for live blockchain data through a Hedera x402-gated service (settled by the Blocky402 facilitator), analyzes the data using a live subgraph on The Graph, and submits its answer on-chain. A human then reviews it — an independent check re-derives the answer from fresh data as evidence — before approving or rejecting the payout.
 
 > **Agents shouldn't need unrestricted wallets to participate in an economy. They should have identities, permissions, and controlled spending.**
 
@@ -40,19 +40,18 @@ The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky
 
 ## How It Works
 
-1. A human creator posts a bounty, funded with HBAR, to the escrow contract — picking a **task type** from the agent's own capability registry (currently: detecting suspicious withdrawals, or unusually large deposits)
-2. An agent discovers the open bounty from the contract's event log
-3. It checks whether it actually recognizes the bounty's task type — a real capability gate, decided **before** anything else. An unrecognized type is refused outright: no price probe, no ENS lookup, no claim, no transaction
-4. It resolves its ENSv2 identity and spending policy on Sepolia and decides whether it can afford the work — **before** claiming anything
-5. If it can: it claims the bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty
-6. It requests the paid data → receives HTTP `402 Payment Required`
-7. Pays via Hedera x402 through Blocky402 — only reachable because step 4 already confirmed price ≤ spending limit
-8. Retrieves live data from The Graph for that task's entity (withdrawals or deposits) and analyzes it, flagging anomalies (e.g. an unusually large amount)
-9. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
-10. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
-11. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
+1. Human creators post bounties, each funded with HBAR, to the escrow contract — picking a **task type** from the agent's own capability registry (currently: detecting suspicious withdrawals, or unusually large deposits). Many can be open at once
+2. An agent discovers every currently-open bounty from the contract's event log
+3. It resolves its ENSv2 identity and spending policy on Sepolia once, then works through the open candidates in order, deciding per bounty whether it can do the work: does it recognize the task type, and is the price within its spending limit? An unrecognized type or an over-budget price is skipped outright — no claim, no transaction for that candidate — and it moves on to the next one
+4. Once it finds one it can do: it claims that bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty (and if another agent claims it first in the meantime, the claim reverts and the agent moves on to the next candidate instead)
+5. It requests the paid data → receives HTTP `402 Payment Required`
+6. Pays via Hedera x402 through Blocky402 — only reachable because the affordability check already passed for this bounty
+7. Retrieves live data from The Graph for that task's entity (withdrawals or deposits) and analyzes it, flagging anomalies (e.g. an unusually large amount)
+8. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
+9. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
+10. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
 
-If a data service's price exceeds the agent's authorized limit — even for an otherwise fully-trusted identity — it never claims the bounty at all, and the payment is never attempted. No funds move, no data is purchased, no submission is made. The same is true for a task type the agent doesn't recognize — it's a genuine on-chain-data-driven decision, not a UI label. See it live on the **Live Execution** dashboard screen.
+If every open bounty is either priced above the agent's authorized limit or an unrecognized task type — even for an otherwise fully-trusted identity — it never claims anything, and no payment is ever attempted. No funds move, no data is purchased, no submission is made; the step log shows exactly why each candidate was skipped. See it live on the **Live Execution** dashboard screen.
 
 ---
 

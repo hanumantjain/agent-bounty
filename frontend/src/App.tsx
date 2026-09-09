@@ -106,6 +106,7 @@ function App() {
             <Route path="/agent" element={<Agent />} />
             <Route path="/execution" element={<Execution />} />
             <Route path="/bounty" element={<Bounty />} />
+            <Route path="/bounty/:taskId" element={<Bounty />} />
           </Routes>
         </main>
       </div>

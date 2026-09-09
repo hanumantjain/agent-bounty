@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 
 interface BountyDetails {
   taskId: string
@@ -22,6 +23,7 @@ const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 
 export default function Bounty() {
+  const { taskId } = useParams<{ taskId?: string }>()
   const [bounty, setBounty] = useState<BountyDetails | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
@@ -30,7 +32,8 @@ export default function Bounty() {
   const [deciding, setDeciding] = useState(false)
 
   const load = () => {
-    fetch('/api/bounty/current')
+    const url = taskId ? `/api/bounty/${taskId}` : '/api/bounty/current'
+    fetch(url)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no bounty found'))))
       .then((data) => {
         setBounty(data)
@@ -40,7 +43,7 @@ export default function Bounty() {
       .catch((e) => setError(e.message))
   }
 
-  useEffect(load, [])
+  useEffect(load, [taskId])
 
   const runCheck = async () => {
     if (!bounty) return

@@ -31,6 +31,24 @@ router.get('/task-types', async (req, res) => {
   res.json(TASK_TYPES)
 })
 
+router.get('/list', async (req, res) => {
+  try {
+    const { makeHederaEvmClients, discoverAllBounties } = await import('../../agent/lib/bountyEscrow.js')
+    const { publicClient } = makeHederaEvmClients()
+    const all = await discoverAllBounties(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS)
+    const bounties = all
+      .map(({ taskId, bounty }) => ({
+        ...serializeBounty(taskId, bounty),
+        dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
+        contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
+      }))
+      .reverse() // newest first for display
+    res.json(bounties)
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
 router.get('/current', async (req, res) => {
   try {
     const { makeHederaEvmClients, discoverLatestBounty } = await import('../../agent/lib/bountyEscrow.js')
@@ -73,6 +91,22 @@ router.post('/create', async (req, res) => {
     })
 
     res.json(result)
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+router.get('/:taskId', async (req, res) => {
+  try {
+    const { makeHederaEvmClients, getBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { publicClient } = makeHederaEvmClients()
+    const bounty = await getBounty(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS, req.params.taskId)
+    if (bounty.status === 0) return res.status(404).json({ error: 'bounty not found' })
+    res.json({
+      ...serializeBounty(req.params.taskId, bounty),
+      dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
+      contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
+    })
   } catch (err) {
     res.status(502).json({ error: err.message })
   }
