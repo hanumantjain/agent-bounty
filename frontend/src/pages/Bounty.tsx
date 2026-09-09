@@ -29,17 +29,22 @@ export default function Bounty() {
 
   return (
     <div className="page">
-      <h1>Bounty Details</h1>
+      <div className="page-header">
+        <h1>Bounty Details</h1>
+        <p className="page-subtitle">Task, submission, verification and payout status.</p>
+      </div>
+
       {error && <p className="error">{error}</p>}
+
       {bounty && (
         <div className="card">
-          <div className="card-row">
+          <div className="card-header">
+            <div className="card-title-block">
+              <div className="card-icon">▤</div>
+              <div className="card-title">{bounty.description}</div>
+            </div>
             <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
-            <button className="button-ghost" onClick={load}>
-              Refresh
-            </button>
           </div>
-          <p className="description">{bounty.description}</p>
 
           <div className="detail-row">
             <span className="stat-label">Task ID</span>
@@ -61,16 +66,24 @@ export default function Bounty() {
           {bounty.answer && (
             <>
               <h3>Submitted Answer</h3>
-              <pre className="log-data">{JSON.stringify(bounty.answer, null, 2)}</pre>
+              <pre className="activity-data">{JSON.stringify(bounty.answer, null, 2)}</pre>
             </>
           )}
 
-          <p className="hint">
-            Contract:{' '}
-            <a href={`https://hashscan.io/testnet/contract/${bounty.contractAddress}`} target="_blank" rel="noreferrer">
-              view on HashScan
-            </a>
-          </p>
+          {bounty.status === 'Paid' && <div className="banner banner-success">✓ Independent verification passed — reward paid out.</div>}
+          {bounty.status === 'Rejected' && <div className="banner banner-blocked">✗ Independent verification failed — reward withheld.</div>}
+
+          <div className="card-header">
+            <p className="hint">
+              Contract:{' '}
+              <a href={`https://hashscan.io/testnet/contract/${bounty.contractAddress}`} target="_blank" rel="noreferrer">
+                view on HashScan
+              </a>
+            </p>
+            <button className="button-ghost" onClick={load}>
+              Refresh
+            </button>
+          </div>
         </div>
       )}
     </div>

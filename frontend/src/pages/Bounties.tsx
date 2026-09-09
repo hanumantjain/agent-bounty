@@ -27,14 +27,33 @@ export default function Bounties() {
 
   return (
     <div className="page">
-      <h1>Bounty Marketplace</h1>
-      {error && <p className="error">{error} — create one with `npm run create-bounty` in agent/</p>}
+      <div className="page-header">
+        <h1>Bounty Marketplace</h1>
+        <p className="page-subtitle">Find and assign bounties to your AI agents.</p>
+      </div>
+
+      {error && (
+        <p className="error">
+          {error} — create one by running <code>npm run create-bounty</code> in <code>agent/</code>
+        </p>
+      )}
+
       {bounty && (
         <div className="card">
-          <div className="card-row">
+          <div className="card-header">
+            <div className="card-title-block">
+              <div className="card-icon">◆</div>
+              <div>
+                <div className="card-title">{bounty.description}</div>
+                <div className="tag-row">
+                  <span className="tag">DeFi Security</span>
+                  <span className="tag">Blockchain Data</span>
+                </div>
+              </div>
+            </div>
             <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
           </div>
-          <p className="description">{bounty.description}</p>
+
           <div className="stat-row">
             <div className="stat">
               <span className="stat-label">Reward</span>
@@ -45,6 +64,7 @@ export default function Bounties() {
               <span className="stat-value">{hbar(bounty.dataPriceTinybars)} HBAR</span>
             </div>
           </div>
+
           <Link to="/execution" className="button">
             Run Agent
           </Link>

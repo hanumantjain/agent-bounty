@@ -61,7 +61,11 @@ export default function Execution() {
 
   return (
     <div className="page">
-      <h1>Live Execution</h1>
+      <div className="page-header">
+        <h1>Live Execution</h1>
+        <p className="page-subtitle">Watch the agent discover, pay, work and earn — in real time.</p>
+      </div>
+
       <div className="identity-select">
         {IDENTITIES.map((name) => (
           <button
@@ -91,13 +95,30 @@ export default function Execution() {
       )}
 
       <div className="log">
-        {log.length === 0 && <p className="hint">Click "Run Agent" to start.</p>}
-        {log.map((entry, i) => (
-          <div className="log-entry" key={i}>
-            <span className="log-step">{entry.step}</span>
-            {formatData(entry.data) && <pre className="log-data">{formatData(entry.data)}</pre>}
-          </div>
-        ))}
+        <div className="activity-feed">
+          {log.length === 0 && <p className="hint" style={{ padding: '16px 0' }}>Click "Run Agent" to start.</p>}
+          {log.map((entry, i) => (
+            <div className="activity-item" key={i}>
+              <span className="activity-icon">✓</span>
+              <div className="activity-body">
+                <span className="activity-step">{entry.step}</span>
+                {formatData(entry.data) && <pre className="activity-data">{formatData(entry.data)}</pre>}
+              </div>
+            </div>
+          ))}
+          {running && (
+            <div className="activity-item">
+              <span className="activity-icon" style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}>
+                ●
+              </span>
+              <div className="activity-body">
+                <span className="activity-step" style={{ color: 'var(--text-dim)' }}>
+                  working…
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
