@@ -1,89 +1,112 @@
-:root {
-  --bg: #0a0d17;
-  --bg-elevated: #12162586;
-  --bg-card: #141a2c;
-  --bg-inset: #0d1120;
-  --border: #232a42;
-  --text: #9aa3b8;
-  --text-dim: #6b7386;
-  --text-h: #f4f6fb;
-  --accent: #8b5cf6;
-  --accent-2: #3b82f6;
-  --accent-bg: rgba(139, 92, 246, 0.14);
-  --accent-border: rgba(139, 92, 246, 0.4);
-  --success: #22c55e;
-  --success-bg: rgba(34, 197, 94, 0.14);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.14);
-  --gradient: linear-gradient(135deg, var(--accent), var(--accent-2));
-  --shadow: rgba(0, 0, 0, 0.4) 0 10px 25px -5px, rgba(0, 0, 0, 0.3) 0 4px 6px -2px;
+@import 'tailwindcss';
 
-  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+@theme {
+  --color-bg: #0a0d17;
+  --color-surface: #141a2c;
+  --color-inset: #0d1120;
+  --color-border: #232a42;
+  --color-muted: #9aa3b8;
+  --color-dim: #6b7386;
+  --color-heading: #f4f6fb;
+  --color-accent: #8b5cf6;
+  --color-accent-2: #3b82f6;
+  --color-success: #22c55e;
+  --color-danger: #ef4444;
 
-  font: 15px/150% var(--sans);
-  color-scheme: dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
 }
 
-#root {
-  width: 100%;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply m-0 bg-bg text-muted font-sans antialiased;
+  }
+
+  #root {
+    @apply flex flex-col overflow-hidden;
+  }
+
+  h1 {
+    @apply text-2xl font-semibold tracking-tight text-heading;
+  }
+
+  h2 {
+    @apply text-lg font-semibold text-heading;
+  }
+
+  h3 {
+    @apply mt-4 mb-2 text-xs font-semibold tracking-wider text-dim uppercase;
+  }
+
+  code {
+    @apply rounded bg-inset px-1.5 py-0.5 font-mono text-[13px] text-heading;
+  }
+
+  a {
+    @apply text-accent-2;
+  }
 }
 
-body {
-  margin: 0;
-}
+@layer components {
+  .card {
+    @apply flex flex-col gap-4.5 rounded-2xl border border-border bg-surface p-6 shadow-xl shadow-black/30;
+  }
 
-h1,
-h2,
-h3 {
-  font-family: var(--heading);
-  font-weight: 600;
-  color: var(--text-h);
-}
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-xs font-semibold tracking-wide text-accent uppercase;
+  }
 
-h1 {
-  font-size: 28px;
-  letter-spacing: -0.5px;
-  margin: 0 0 4px;
-}
+  .badge-paid {
+    @apply border-success/40 bg-success/15 text-success;
+  }
 
-h2 {
-  font-size: 18px;
-  margin: 0 0 12px;
-}
+  .badge-rejected {
+    @apply border-danger/40 bg-danger/15 text-danger;
+  }
 
-h3 {
-  font-size: 14px;
-  margin: 16px 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-dim);
-}
+  .tag {
+    @apply rounded-full border border-border bg-inset px-2.5 py-0.5 text-[11px] text-dim;
+  }
 
-p {
-  margin: 0;
-}
+  .btn-primary {
+    @apply inline-flex cursor-pointer items-center justify-center self-start rounded-lg bg-gradient-to-br from-accent to-accent-2 px-5.5 py-2.5 font-sans text-sm font-semibold text-white disabled:cursor-default disabled:opacity-45;
+  }
 
-a {
-  color: var(--accent-2);
-}
+  .btn-ghost {
+    @apply inline-flex cursor-pointer items-center justify-center rounded-lg border border-border bg-transparent px-5.5 py-2.5 font-sans text-sm font-semibold text-muted;
+  }
 
-code {
-  font-family: var(--mono);
-  font-size: 13px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--bg-inset);
-  color: var(--text-h);
+  .chip {
+    @apply cursor-pointer rounded-full border border-border bg-inset px-4 py-2 font-sans text-[13px] text-muted;
+  }
+
+  .chip-active {
+    @apply border-accent/40 bg-accent/15 text-accent;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-muted no-underline hover:bg-inset hover:text-heading;
+  }
+
+  .nav-item.active {
+    @apply border border-accent/40 bg-accent/15 text-heading;
+  }
+
+  .banner {
+    @apply mb-5 rounded-lg px-5 py-4 text-sm font-semibold;
+  }
+
+  .banner-blocked {
+    @apply border border-danger/40 bg-danger/15 text-danger;
+  }
+
+  .banner-success {
+    @apply border border-success/40 bg-success/15 text-success;
+  }
 }

@@ -26,26 +26,28 @@ export default function Bounties() {
   }, [])
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6">
         <h1>Bounty Marketplace</h1>
-        <p className="page-subtitle">Find and assign bounties to your AI agents.</p>
+        <p className="mt-1 text-sm text-dim">Find and assign bounties to your AI agents.</p>
       </div>
 
       {error && (
-        <p className="error">
+        <p className="text-sm text-danger">
           {error} — create one by running <code>npm run create-bounty</code> in <code>agent/</code>
         </p>
       )}
 
       {bounty && (
         <div className="card">
-          <div className="card-header">
-            <div className="card-title-block">
-              <div className="card-icon">◆</div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-accent/40 bg-accent/15 text-lg text-accent">
+                ◆
+              </div>
               <div>
-                <div className="card-title">{bounty.description}</div>
-                <div className="tag-row">
+                <div className="mb-1 text-base font-semibold text-heading">{bounty.description}</div>
+                <div className="flex flex-wrap gap-1.5">
                   <span className="tag">DeFi Security</span>
                   <span className="tag">Blockchain Data</span>
                 </div>
@@ -54,18 +56,18 @@ export default function Bounties() {
             <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
           </div>
 
-          <div className="stat-row">
-            <div className="stat">
-              <span className="stat-label">Reward</span>
-              <span className="stat-value">{hbar(bounty.rewardTinybars)} HBAR</span>
+          <div className="flex gap-10">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] tracking-wider text-dim uppercase">Reward</span>
+              <span className="text-[22px] font-bold text-heading">{hbar(bounty.rewardTinybars)} HBAR</span>
             </div>
-            <div className="stat">
-              <span className="stat-label">Data cost</span>
-              <span className="stat-value">{hbar(bounty.dataPriceTinybars)} HBAR</span>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] tracking-wider text-dim uppercase">Data cost</span>
+              <span className="text-[22px] font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
             </div>
           </div>
 
-          <Link to="/execution" className="button">
+          <Link to="/execution" className="btn-primary">
             Run Agent
           </Link>
         </div>

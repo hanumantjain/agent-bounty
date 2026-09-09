@@ -60,13 +60,13 @@ export default function Execution() {
   }
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6">
         <h1>Live Execution</h1>
-        <p className="page-subtitle">Watch the agent discover, pay, work and earn — in real time.</p>
+        <p className="mt-1 text-sm text-dim">Watch the agent discover, pay, work and earn — in real time.</p>
       </div>
 
-      <div className="identity-select">
+      <div className="mb-5 flex items-center gap-2">
         {IDENTITIES.map((name) => (
           <button
             key={name}
@@ -77,7 +77,7 @@ export default function Execution() {
             {name}
           </button>
         ))}
-        <button className="button" disabled={running} onClick={run}>
+        <button className="btn-primary" disabled={running} onClick={run}>
           {running ? 'Running…' : 'Run Agent'}
         </button>
       </div>
@@ -94,28 +94,30 @@ export default function Execution() {
         <div className="banner banner-blocked">✗ Independent verification failed — reward withheld.</div>
       )}
 
-      <div className="log">
-        <div className="activity-feed">
-          {log.length === 0 && <p className="hint" style={{ padding: '16px 0' }}>Click "Run Agent" to start.</p>}
+      <div className="max-h-[55vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5">
+        <div className="flex flex-col">
+          {log.length === 0 && <p className="py-4 text-sm text-dim">Click "Run Agent" to start.</p>}
           {log.map((entry, i) => (
-            <div className="activity-item" key={i}>
-              <span className="activity-icon">✓</span>
-              <div className="activity-body">
-                <span className="activity-step">{entry.step}</span>
-                {formatData(entry.data) && <pre className="activity-data">{formatData(entry.data)}</pre>}
+            <div key={i} className="flex gap-3 border-b border-border py-2.5 last:border-0">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success/15 text-[11px] text-success">
+                ✓
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="font-mono text-[13px] font-semibold text-heading">{entry.step}</span>
+                {formatData(entry.data) && (
+                  <pre className="mt-1.5 overflow-x-auto rounded-md bg-inset px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-all text-muted">
+                    {formatData(entry.data)}
+                  </pre>
+                )}
               </div>
             </div>
           ))}
           {running && (
-            <div className="activity-item">
-              <span className="activity-icon" style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}>
+            <div className="flex gap-3 py-2.5">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[11px] text-accent">
                 ●
               </span>
-              <div className="activity-body">
-                <span className="activity-step" style={{ color: 'var(--text-dim)' }}>
-                  working…
-                </span>
-              </div>
+              <span className="font-mono text-[13px] font-semibold text-dim">working…</span>
             </div>
           )}
         </div>

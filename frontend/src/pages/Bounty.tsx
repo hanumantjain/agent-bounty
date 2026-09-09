@@ -28,59 +28,67 @@ export default function Bounty() {
   useEffect(load, [])
 
   return (
-    <div className="page">
-      <div className="page-header">
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-6">
         <h1>Bounty Details</h1>
-        <p className="page-subtitle">Task, submission, verification and payout status.</p>
+        <p className="mt-1 text-sm text-dim">Task, submission, verification and payout status.</p>
       </div>
 
-      {error && <p className="error">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {bounty && (
         <div className="card">
-          <div className="card-header">
-            <div className="card-title-block">
-              <div className="card-icon">▤</div>
-              <div className="card-title">{bounty.description}</div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-accent/40 bg-accent/15 text-lg text-accent">
+                ▤
+              </div>
+              <div className="text-base font-semibold text-heading">{bounty.description}</div>
             </div>
             <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
           </div>
 
-          <div className="detail-row">
-            <span className="stat-label">Task ID</span>
-            <span className="mono small">{bounty.taskId}</span>
+          <div className="flex items-baseline justify-between border-b border-border pb-2.5">
+            <span className="text-[11px] tracking-wider text-dim uppercase">Task ID</span>
+            <span className="font-mono text-xs">{bounty.taskId}</span>
           </div>
-          <div className="detail-row">
-            <span className="stat-label">Creator</span>
-            <span className="mono small">{bounty.creator}</span>
+          <div className="flex items-baseline justify-between border-b border-border pb-2.5">
+            <span className="text-[11px] tracking-wider text-dim uppercase">Creator</span>
+            <span className="font-mono text-xs">{bounty.creator}</span>
           </div>
-          <div className="detail-row">
-            <span className="stat-label">Reward</span>
+          <div className="flex items-baseline justify-between border-b border-border pb-2.5">
+            <span className="text-[11px] tracking-wider text-dim uppercase">Reward</span>
             <span>{hbar(bounty.rewardTinybars)} HBAR</span>
           </div>
-          <div className="detail-row">
-            <span className="stat-label">Agent</span>
-            <span className="mono small">{bounty.agent ?? '—'}</span>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] tracking-wider text-dim uppercase">Agent</span>
+            <span className="font-mono text-xs">{bounty.agent ?? '—'}</span>
           </div>
 
           {bounty.answer && (
             <>
               <h3>Submitted Answer</h3>
-              <pre className="activity-data">{JSON.stringify(bounty.answer, null, 2)}</pre>
+              <pre className="overflow-x-auto rounded-md bg-inset px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-all text-muted">
+                {JSON.stringify(bounty.answer, null, 2)}
+              </pre>
             </>
           )}
 
-          {bounty.status === 'Paid' && <div className="banner banner-success">✓ Independent verification passed — reward paid out.</div>}
-          {bounty.status === 'Rejected' && <div className="banner banner-blocked">✗ Independent verification failed — reward withheld.</div>}
+          {bounty.status === 'Paid' && (
+            <div className="banner banner-success">✓ Independent verification passed — reward paid out.</div>
+          )}
+          {bounty.status === 'Rejected' && (
+            <div className="banner banner-blocked">✗ Independent verification failed — reward withheld.</div>
+          )}
 
-          <div className="card-header">
-            <p className="hint">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-dim">
               Contract:{' '}
               <a href={`https://hashscan.io/testnet/contract/${bounty.contractAddress}`} target="_blank" rel="noreferrer">
                 view on HashScan
               </a>
             </p>
-            <button className="button-ghost" onClick={load}>
+            <button className="btn-ghost" onClick={load}>
               Refresh
             </button>
           </div>
