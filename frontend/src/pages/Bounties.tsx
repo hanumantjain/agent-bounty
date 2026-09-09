@@ -99,8 +99,14 @@ export default function Bounties() {
     }
   }
 
+  const sortedBounties = [...bounties].sort((a, b) => {
+    const aOpen = a.status === 'Open' ? 0 : 1
+    const bOpen = b.status === 'Open' ? 0 : 1
+    return aOpen - bOpen
+  })
+
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-6xl">
       {/* Status strip */}
       <div className="mb-6 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
@@ -194,8 +200,8 @@ export default function Bounties() {
         </div>
       )}
 
-      <div className="flex flex-col gap-4">
-        {bounties.map((bounty) => (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {sortedBounties.map((bounty) => (
           <Link
             key={bounty.taskId}
             to={`/bounty/${bounty.taskId}`}
@@ -216,7 +222,7 @@ export default function Bounties() {
               <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 border-t border-border pt-5 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-6 border-t border-border pt-5">
               <div className="flex flex-col gap-1">
                 <span className="label">Reward</span>
                 <span className="text-xl font-bold text-heading">{hbar(bounty.rewardTinybars)} HBAR</span>
@@ -225,7 +231,7 @@ export default function Bounties() {
                 <span className="label">Data cost</span>
                 <span className="text-xl font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="col-span-2 flex flex-col gap-1">
                 <span className="label">Agent</span>
                 <span className="font-mono text-xs text-heading">
                   {bounty.agent ? `${bounty.agent.slice(0, 10)}…` : '—'}
