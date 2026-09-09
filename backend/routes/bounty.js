@@ -19,11 +19,17 @@ function serializeBounty(taskId, bounty) {
     creator: bounty.creator,
     rewardTinybars: bounty.reward.toString(),
     description: bounty.description,
+    taskType: bounty.taskType,
     status: STATUS_NAMES[bounty.status],
     agent: bounty.agent === '0x0000000000000000000000000000000000000000' ? null : bounty.agent,
     answer: decodeAnswer(bounty.answer),
   }
 }
+
+router.get('/task-types', async (req, res) => {
+  const { TASK_TYPES } = await import('../../agent/lib/tasks.js')
+  res.json(TASK_TYPES)
+})
 
 router.get('/current', async (req, res) => {
   try {
@@ -45,11 +51,15 @@ router.post('/create', async (req, res) => {
   try {
     const description = String(req.body?.description ?? '').trim()
     const rewardHbar = Number(req.body?.rewardHbar)
+    const taskType = String(req.body?.taskType ?? '')
 
     if (!description) return res.status(400).json({ error: 'description is required' })
     if (!(rewardHbar > 0)) return res.status(400).json({ error: 'rewardHbar must be a positive number' })
 
     const { makeHederaEvmClients, createBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { getTaskDefinition } = await import('../../agent/lib/tasks.js')
+    if (!getTaskDefinition(taskType)) return res.status(400).json({ error: `unsupported taskType: ${taskType}` })
+
     const { account, publicClient, walletClient } = makeHederaEvmClients()
 
     const result = await createBounty({
@@ -59,6 +69,7 @@ router.post('/create', async (req, res) => {
       account,
       description,
       rewardHbar,
+      taskType,
     })
 
     res.json(result)

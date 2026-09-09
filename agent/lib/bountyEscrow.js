@@ -9,15 +9,15 @@ export const hederaTestnet = defineChain({
 })
 
 export const BOUNTY_ESCROW_ABI = parseAbi([
-  'function createBounty(bytes32 taskId, string description) payable',
+  'function createBounty(bytes32 taskId, string description, string taskType) payable',
   'function claimBounty(bytes32 taskId)',
   'function submitAnswer(bytes32 taskId, bytes answer)',
   'function releaseReward(bytes32 taskId, bool verified)',
-  'function getBounty(bytes32 taskId) view returns ((address creator, uint256 reward, string description, uint8 status, address agent, bytes answer))',
+  'function getBounty(bytes32 taskId) view returns ((address creator, uint256 reward, string description, string taskType, uint8 status, address agent, bytes answer))',
 ])
 
 const BOUNTY_CREATED_EVENT = parseAbiItem(
-  'event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, string description)',
+  'event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, string description, string taskType)',
 )
 
 export const BountyStatus = { None: 0, Open: 1, Claimed: 2, Submitted: 3, Paid: 4, Rejected: 5 }
@@ -42,13 +42,21 @@ export async function getBounty(publicClient, contractAddress, taskId) {
   })
 }
 
-export async function createBounty({ walletClient, publicClient, contractAddress, account, description, rewardHbar }) {
+export async function createBounty({
+  walletClient,
+  publicClient,
+  contractAddress,
+  account,
+  description,
+  rewardHbar,
+  taskType,
+}) {
   const taskId = keccak256(stringToHex(`bounty-${Date.now()}`))
   const hash = await walletClient.writeContract({
     address: contractAddress,
     abi: BOUNTY_ESCROW_ABI,
     functionName: 'createBounty',
-    args: [taskId, description],
+    args: [taskId, description, taskType],
     value: parseEther(String(rewardHbar)),
     account,
   })

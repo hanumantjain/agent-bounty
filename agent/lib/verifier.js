@@ -1,5 +1,6 @@
-import { fetchRecentWithdrawsIndependently } from './verifyGraph.js'
-import { analyzeWithdrawals } from './analyze.js'
+import { fetchRecentEntityIndependently } from './verifyGraph.js'
+import { analyzeAmounts } from './analyze.js'
+import { getTaskDefinition } from './tasks.js'
 import { makeHederaEvmClients, getBounty, BOUNTY_ESCROW_ABI, BountyStatus } from './bountyEscrow.js'
 
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
@@ -19,13 +20,15 @@ export async function checkAnswer(taskId) {
     throw new Error(`bounty is not in Submitted state (status=${bounty.status})`)
   }
 
+  const task = getTaskDefinition(bounty.taskType)
+  if (!task) throw new Error(`unsupported task type: ${bounty.taskType}`)
+
   const submitted = decodeAnswer(bounty.answer)
-  const freshWithdrawals = await fetchRecentWithdrawsIndependently({ first: 10 })
-  const freshAnalysis = analyzeWithdrawals(freshWithdrawals)
+  const freshItems = await fetchRecentEntityIndependently(task.entity, { first: 10 })
+  const freshAnalysis = analyzeAmounts(freshItems)
 
   const matches =
-    submitted.verdict === freshAnalysis.verdict &&
-    submitted.largestWithdrawal?.hash === freshAnalysis.largestWithdrawal?.hash
+    submitted.verdict === freshAnalysis.verdict && submitted.largest?.hash === freshAnalysis.largest?.hash
 
   return { matches, submitted, freshAnalysis }
 }

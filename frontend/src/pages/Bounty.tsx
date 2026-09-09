@@ -5,16 +5,17 @@ interface BountyDetails {
   creator: string
   rewardTinybars: string
   description: string
+  taskType: string
   status: string
   agent: string | null
-  answer: { verdict: string; threshold: number; largestWithdrawal: unknown } | null
+  answer: { verdict: string; threshold: number; largest: unknown } | null
   contractAddress: string
 }
 
 interface CheckResult {
   matches: boolean
-  submitted: { verdict: string; largestWithdrawal: unknown }
-  freshAnalysis: { verdict: string; largestWithdrawal: unknown }
+  submitted: { verdict: string; largest: unknown }
+  freshAnalysis: { verdict: string; largest: unknown }
 }
 
 const TINYBARS_PER_HBAR = 100_000_000
@@ -95,6 +96,10 @@ export default function Bounty() {
             <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
           </div>
 
+          <div className="flex items-baseline justify-between border-b border-border pb-2.5">
+            <span className="label">Task type</span>
+            <span className="text-xs text-heading">{bounty.taskType}</span>
+          </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
             <span className="label">Task ID</span>
             <span className="font-mono text-xs">{bounty.taskId}</span>

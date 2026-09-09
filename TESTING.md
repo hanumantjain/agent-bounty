@@ -21,12 +21,13 @@ Run automated tests: `npm test` from the repo root (runs `agent/` and `backend/`
 | 8 | Correct answer pays | Live: independent check matched a genuine agent answer, a human approved via `POST /api/bounty/:taskId/decide` → status `Paid`, reward transferred (Phase 11) |
 | 9 | Wrong answer does not pay | Live: a deliberately fabricated answer claimed + submitted directly → independent check flagged the mismatch (`matches: false`) → human rejected → status `Rejected`, reward untouched (Phase 11) |
 | — | Exclusive claim (not in the guide's original list, added with the claim step) | Live: claiming the same bounty twice in immediate succession — the second `claimBounty` call reverts with `"not open"`, confirmed on real testnet (`contracts/scripts/testFlow.js`) |
+| — | Task-type capability gate (not in the guide's original list, added with multi-task-type support) | Live: a bounty created with an unrecognized `taskType` (bypassing `POST /api/bounty/create`'s validation, directly via the contract) is discovered but never claimed — the agent stops at the capability check before any price probe, ENS lookup, or transaction; confirmed zero new transactions via mirror node. A second real task type (`deposit-anomaly`, querying the same subgraph's `deposits` entity) was run end-to-end and correctly flagged a genuine ~$40.1M outlier deposit as `SUSPICIOUS`, matched by the independent re-check, and approved |
 
 ## What's automated vs. what's live-verified
 
 **Automated** (`npm test`, no network cost, safe to re-run anytime):
 - `agent/test/decide.test.js` — spending-limit affordability logic, including exact-boundary cases.
-- `agent/test/analyze.test.js` — withdrawal-analysis verdict logic, including empty-list and exact-threshold edge cases.
+- `agent/test/analyze.test.js` — anomaly-analysis verdict logic (shared by both task types), including empty-list and exact-threshold edge cases.
 - `backend/test/data.test.js` — the paid endpoint's rejection paths (402 on no payment, rejection of a malformed header, and a live call to the real Blocky402 facilitator confirming it rejects a fabricated transaction).
 
 **Live-verified, not re-run automatically** (would cost real testnet HBAR/gas or require live ENS/Graph state per run):

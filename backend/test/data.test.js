@@ -15,7 +15,7 @@ async function withServer(fn) {
 
 test('unpaid request returns 402 with payment requirements', async () => {
   await withServer(async (baseUrl) => {
-    const res = await fetch(`${baseUrl}/api/data/recent-withdrawals`)
+    const res = await fetch(`${baseUrl}/api/data/recent-activity`)
     assert.equal(res.status, 402)
     const body = await res.json()
     assert.equal(body.x402Version, 2)
@@ -26,7 +26,7 @@ test('unpaid request returns 402 with payment requirements', async () => {
 
 test('malformed X-PAYMENT header is rejected, not treated as valid payment', async () => {
   await withServer(async (baseUrl) => {
-    const res = await fetch(`${baseUrl}/api/data/recent-withdrawals`, {
+    const res = await fetch(`${baseUrl}/api/data/recent-activity`, {
       headers: { 'X-PAYMENT': 'not-valid-base64-json-at-all' },
     })
     assert.notEqual(res.status, 200)
@@ -50,7 +50,7 @@ test('a well-formed but fake payment transaction is rejected by the facilitator,
       },
       payload: { transaction: Buffer.from('not a real signed transaction').toString('base64') },
     }
-    const res = await fetch(`${baseUrl}/api/data/recent-withdrawals`, {
+    const res = await fetch(`${baseUrl}/api/data/recent-activity`, {
       headers: { 'X-PAYMENT': Buffer.from(JSON.stringify(fakePayload)).toString('base64') },
     })
     assert.notEqual(res.status, 200)

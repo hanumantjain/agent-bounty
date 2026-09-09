@@ -7,6 +7,7 @@ interface Bounty {
   creator: string
   rewardTinybars: string
   description: string
+  taskType: string
   status: string
   agent: string | null
   dataPriceTinybars: string
@@ -15,6 +16,11 @@ interface Bounty {
 interface Identity {
   subname: string
   spendingLimitHbar: number
+}
+
+interface TaskTypeDef {
+  label: string
+  entity: string
 }
 
 const TINYBARS_PER_HBAR = 100_000_000
@@ -26,11 +32,24 @@ export default function Bounties() {
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const [taskTypes, setTaskTypes] = useState<Record<string, TaskTypeDef>>({})
   const [showForm, setShowForm] = useState(false)
   const [description, setDescription] = useState('')
   const [rewardHbar, setRewardHbar] = useState('0.05')
+  const [taskType, setTaskType] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/bounty/task-types')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data: Record<string, TaskTypeDef>) => {
+        setTaskTypes(data)
+        const first = Object.keys(data)[0]
+        if (first) setTaskType((current) => current || first)
+      })
+      .catch(() => setTaskTypes({}))
+  }, [])
 
   const loadBounty = () => {
     fetch('/api/bounty/current')
@@ -58,7 +77,7 @@ export default function Bounties() {
       const res = await fetch('/api/bounty/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, rewardHbar }),
+        body: JSON.stringify({ description, rewardHbar, taskType }),
       })
       if (!res.ok) throw new Error((await res.json()).error ?? 'failed to create bounty')
       setDescription('')
@@ -108,6 +127,20 @@ export default function Bounties() {
           />
           <div className="flex items-end gap-3">
             <div className="flex flex-col gap-1">
+              <span className="label">Task type</span>
+              <select
+                className="w-48 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
+                value={taskType}
+                onChange={(e) => setTaskType(e.target.value)}
+              >
+                {Object.entries(taskTypes).map(([key, def]) => (
+                  <option key={key} value={key}>
+                    {def.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
               <span className="label">Reward (HBAR)</span>
               <input
                 type="number"
@@ -118,7 +151,7 @@ export default function Bounties() {
                 onChange={(e) => setRewardHbar(e.target.value)}
               />
             </div>
-            <button className="btn-primary" onClick={submitBounty} disabled={creating || !description.trim()}>
+            <button className="btn-primary" onClick={submitBounty} disabled={creating || !description.trim() || !taskType}>
               {creating ? 'Posting…' : 'Fund & Post'}
             </button>
             <button className="btn-ghost" onClick={() => setShowForm(false)} disabled={creating}>
@@ -146,8 +179,7 @@ export default function Bounties() {
               <div>
                 <div className="mb-1.5 text-base font-semibold text-heading">{bounty.description}</div>
                 <div className="flex flex-wrap gap-1.5">
-                  <span className="tag">DeFi Security</span>
-                  <span className="tag">Blockchain Data</span>
+                  <span className="tag">{taskTypes[bounty.taskType]?.label ?? bounty.taskType}</span>
                 </div>
               </div>
             </div>

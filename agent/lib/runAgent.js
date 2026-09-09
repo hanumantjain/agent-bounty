@@ -3,12 +3,12 @@ import { sepolia } from 'viem/chains'
 import { buildAndSignPayment } from './hederaPay.js'
 import { resolveSpendingLimit } from './ens.js'
 import { checkAffordability } from './decide.js'
-import { analyzeWithdrawals } from './analyze.js'
+import { analyzeAmounts } from './analyze.js'
+import { getTaskDefinition } from './tasks.js'
 import { makeHederaEvmClients, discoverLatestOpenBounty, claimBounty, submitAnswer } from './bountyEscrow.js'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
 const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
-const RESOURCE_PATH = '/api/data/recent-withdrawals'
 const PARENT_LABEL = process.env.ENS_PARENT_LABEL
 const SPENDING_LIMIT_KEY = process.env.ENS_SPENDING_LIMIT_KEY || 'agent.spending.limit'
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
@@ -27,10 +27,22 @@ export async function runAgent({ identity, onStep = () => {} }) {
   }
   onStep('bounty-found', found)
 
-  // Decide whether this identity can afford to do the work — before claiming it, so a claim
-  // is never made on a bounty the agent then has to walk away from.
-  onStep('probe-price', { path: RESOURCE_PATH })
-  const probe = await fetch(`${BACKEND_URL}${RESOURCE_PATH}`)
+  // First part of "can I do this work?": does this agent even know how to do this task type?
+  // An unrecognized type is a real capability gap, decided before anything else — no price
+  // probe, no ENS lookup, no claim.
+  const task = getTaskDefinition(found.bounty.taskType)
+  if (!task) {
+    onStep('unsupported-task', { taskType: found.bounty.taskType })
+    return { outcome: 'unsupported-task', taskType: found.bounty.taskType }
+  }
+  onStep('task-recognized', { taskType: found.bounty.taskType, label: task.label })
+
+  const resourcePath = `/api/data/recent-activity?entity=${task.entity}`
+
+  // Second part of "can I do this work?": can this identity afford it? Decided before
+  // claiming, so a claim is never made on a bounty the agent then has to walk away from.
+  onStep('probe-price', { path: resourcePath })
+  const probe = await fetch(`${BACKEND_URL}${resourcePath}`)
   if (probe.status !== 402) throw new Error(`expected 402, got ${probe.status}: ${await probe.text()}`)
   const { accepts } = await probe.json()
   const requirements = accepts.find((r) => r.network === NETWORK)
@@ -84,7 +96,7 @@ export async function runAgent({ identity, onStep = () => {} }) {
   }
 
   onStep('paying', {})
-  const paid = await fetch(`${BACKEND_URL}${RESOURCE_PATH}`, {
+  const paid = await fetch(`${BACKEND_URL}${resourcePath}`, {
     headers: { 'X-PAYMENT': Buffer.from(JSON.stringify(paymentPayload)).toString('base64') },
   })
   const body = await paid.json()
@@ -99,7 +111,7 @@ export async function runAgent({ identity, onStep = () => {} }) {
     : null
   onStep('paid', { settlement, data: body })
 
-  const analysis = analyzeWithdrawals(body.withdrawals)
+  const analysis = analyzeAmounts(body.items)
   onStep('analysis', analysis)
 
   const answerHex = toHex(JSON.stringify(analysis))

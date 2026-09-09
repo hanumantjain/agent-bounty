@@ -28,7 +28,7 @@ export default function Execution() {
   const [log, setLog] = useState<LogEntry[]>([])
   const [running, setRunningLocal] = useState(false)
   const [now, setNow] = useState(() => Date.now())
-  const [finalState, setFinalState] = useState<'idle' | 'blocked' | 'submitted'>('idle')
+  const [finalState, setFinalState] = useState<'idle' | 'blocked' | 'submitted' | 'unsupported-task'>('idle')
   const sourceRef = useRef<EventSource | null>(null)
   const logRef = useRef<LogEntry[]>([])
 
@@ -66,6 +66,7 @@ export default function Execution() {
       const result = JSON.parse(e.data)
       if (result.outcome === 'blocked') setFinalState('blocked')
       if (result.outcome === 'submitted') setFinalState('submitted')
+      if (result.outcome === 'unsupported-task') setFinalState('unsupported-task')
     })
 
     source.addEventListener('error', (e: MessageEvent) => {
@@ -102,14 +103,21 @@ export default function Execution() {
     | undefined
   const claimedData = find(log, 'claimed') as { claimTxHash?: string } | undefined
   const paidData = find(log, 'paid') as
-    | { settlement?: { transaction?: string }; data?: { withdrawals?: unknown[] } }
+    | { settlement?: { transaction?: string }; data?: { items?: unknown[] } }
     | undefined
   const analysisData = find(log, 'analysis') as { verdict?: string } | undefined
   const submittedData = find(log, 'submitted') as { submitTxHash?: string } | undefined
+  const taskData = find(log, 'task-recognized') as { taskType?: string; label?: string } | undefined
 
   const priceHbar = priceData?.priceTinybars ? Number(priceData.priceTinybars) / TINYBARS_PER_HBAR : null
 
   const milestones = [
+    {
+      key: 'task',
+      label: 'Task',
+      reached: Boolean(taskData),
+      detail: taskData ? `Recognized · ${taskData.label}` : null,
+    },
     {
       key: 'ensv2',
       label: 'ENSv2',
@@ -131,7 +139,7 @@ export default function Execution() {
       key: 'graph',
       label: 'The Graph',
       reached: Boolean(paidData?.data),
-      detail: paidData?.data?.withdrawals ? `Data retrieved · ${paidData.data.withdrawals.length} transactions` : null,
+      detail: paidData?.data?.items ? `Data retrieved · ${paidData.data.items.length} transactions` : null,
     },
     {
       key: 'hedera',
@@ -179,6 +187,11 @@ export default function Execution() {
       {finalState === 'blocked' && (
         <div className="banner banner-blocked">
           ⛔ BLOCKED — price exceeded this identity's spending limit. No claim or payment was attempted.
+        </div>
+      )}
+      {finalState === 'unsupported-task' && (
+        <div className="banner banner-blocked">
+          ⛔ UNSUPPORTED — this agent doesn't recognize the bounty's task type. No claim or payment was attempted.
         </div>
       )}
       {finalState === 'submitted' && (
@@ -248,6 +261,8 @@ const STEP_META: Record<string, { label: string }> = {
   identity: { label: 'Resolving agent identity' },
   discover: { label: 'Discovering open bounty' },
   'bounty-found': { label: 'Bounty found' },
+  'task-recognized': { label: 'Task type recognized' },
+  'unsupported-task': { label: 'Task type not supported — stopping' },
   'probe-price': { label: 'Checking data price (402)' },
   price: { label: 'Price received' },
   'resolve-ens': { label: 'Reading ENSv2 policy' },

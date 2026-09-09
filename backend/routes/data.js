@@ -1,22 +1,27 @@
 const express = require('express')
 const { requirePayment } = require('../middleware/requirePayment')
-const { fetchRecentWithdraws } = require('../lib/graph')
+const { fetchRecentEntity, ALLOWED_ENTITIES } = require('../lib/graph')
 
 const router = express.Router()
 
 const PRICE_TINYBARS = process.env.X402_PRICE_TINYBARS || '1000000'
-const RESOURCE_PATH = '/api/data/recent-withdrawals'
+const RESOURCE_PATH = '/api/data/recent-activity'
 
 router.get(
-  '/recent-withdrawals',
+  '/recent-activity',
   requirePayment({ amountTinybars: PRICE_TINYBARS, resource: RESOURCE_PATH }),
   async (req, res) => {
+    const entity = req.query.entity || 'withdraws'
+    if (!ALLOWED_ENTITIES.has(entity)) {
+      return res.status(400).json({ error: `unsupported entity: ${entity}` })
+    }
     try {
-      const withdrawals = await fetchRecentWithdraws({ first: 10 })
+      const items = await fetchRecentEntity(entity, { first: 10 })
       res.json({
+        entity,
         subgraphId: process.env.GRAPH_SUBGRAPH_ID,
         fetchedAt: new Date().toISOString(),
-        withdrawals,
+        items,
       })
     } catch (err) {
       res.status(502).json({ error: `failed to fetch live Graph data: ${err.message}` })

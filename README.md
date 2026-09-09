@@ -30,7 +30,7 @@ Each agent identity is a real ENSv2 subname (`researcher.<parent>.eth`, `intern.
 
 ### 2. The Graph — Live Blockchain Intelligence
 
-The paid endpoint and the independent check both query a live, actively-syncing Messari-standardized lending subgraph for real recent `withdraws` events. The agent's "suspicious activity" analysis runs on whatever that query returns *right now* — not a fixture. Before any reward is released, the same query is re-run independently and shown to a human next to the agent's submitted answer, so a stale or fabricated answer is visibly caught rather than trusted.
+The paid endpoint and the independent check both query a live, actively-syncing Messari-standardized lending subgraph — for `withdraws` or `deposits` events, depending on the bounty's task type. The agent's "suspicious activity" analysis runs on whatever that query returns *right now* — not a fixture. Before any reward is released, the same query is re-run independently and shown to a human next to the agent's submitted answer, so a stale or fabricated answer is visibly caught rather than trusted.
 
 ### 3. Hedera — Machine Payments & Settlement
 
@@ -40,18 +40,19 @@ The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky
 
 ## How It Works
 
-1. A human creator posts a bounty, funded with HBAR, to the escrow contract
+1. A human creator posts a bounty, funded with HBAR, to the escrow contract — picking a **task type** from the agent's own capability registry (currently: detecting suspicious withdrawals, or unusually large deposits)
 2. An agent discovers the open bounty from the contract's event log
-3. It resolves its ENSv2 identity and spending policy on Sepolia and decides whether it can afford the work — **before** claiming anything
-4. If it can: it claims the bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty
-5. It requests the paid data → receives HTTP `402 Payment Required`
-6. Pays via Hedera x402 through Blocky402 — only reachable because step 3 already confirmed price ≤ spending limit
-7. Retrieves live withdrawal data from The Graph and analyzes it, flagging anomalies (e.g. an unusually large withdrawal)
-8. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
-9. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
-10. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
+3. It checks whether it actually recognizes the bounty's task type — a real capability gate, decided **before** anything else. An unrecognized type is refused outright: no price probe, no ENS lookup, no claim, no transaction
+4. It resolves its ENSv2 identity and spending policy on Sepolia and decides whether it can afford the work — **before** claiming anything
+5. If it can: it claims the bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty
+6. It requests the paid data → receives HTTP `402 Payment Required`
+7. Pays via Hedera x402 through Blocky402 — only reachable because step 4 already confirmed price ≤ spending limit
+8. Retrieves live data from The Graph for that task's entity (withdrawals or deposits) and analyzes it, flagging anomalies (e.g. an unusually large amount)
+9. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
+10. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
+11. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
 
-If a data service's price exceeds the agent's authorized limit — even for an otherwise fully-trusted identity — it never claims the bounty at all, and the payment is never attempted. No funds move, no data is purchased, no submission is made. See it live on the **Live Execution** dashboard screen.
+If a data service's price exceeds the agent's authorized limit — even for an otherwise fully-trusted identity — it never claims the bounty at all, and the payment is never attempted. No funds move, no data is purchased, no submission is made. The same is true for a task type the agent doesn't recognize — it's a genuine on-chain-data-driven decision, not a UI label. See it live on the **Live Execution** dashboard screen.
 
 ---
 
@@ -92,7 +93,7 @@ If a data service's price exceeds the agent's authorized limit — even for an o
 The bounty escrow smart contract stays intentionally small:
 
 ```solidity
-createBounty(bytes32 taskId, string description) payable
+createBounty(bytes32 taskId, string description, string taskType) payable
 claimBounty(bytes32 taskId)                          // agent-only, atomic — blocks a second claim
 submitAnswer(bytes32 taskId, bytes answer)           // only the claimant
 releaseReward(bytes32 taskId, bool approved)         // verifier-key-gated, called after human review
@@ -108,7 +109,7 @@ Everything below is checkable independently — nothing here is asserted, it's a
 
 | Component | Where to verify |
 |---|---|
-| Bounty escrow contract | [`0.0.10435997`](https://hashscan.io/testnet/contract/0x198b55a99ba81de2ca023632d42efac38e1f620c) on Hedera testnet |
+| Bounty escrow contract | [`0.0.10436913`](https://hashscan.io/testnet/contract/0xa864c2893facdcd54c3fea3bc547da33f5e546d0) on Hedera testnet |
 | Blocky402 facilitator | `https://api.testnet.blocky402.com` (Hedera x402 facilitator) |
 | ENSv2 subname registry (self-deployed) | [`0x7faaa41e9154055e6a988eadc857ccbd41f864c8`](https://sepolia.etherscan.io/address/0x7faaa41e9154055e6a988eadc857ccbd41f864c8) on Sepolia |
 | Live subgraph queried | [`FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A`](https://thegraph.com/explorer/subgraphs/FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A) on The Graph Explorer |

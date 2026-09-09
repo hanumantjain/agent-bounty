@@ -30,7 +30,7 @@ async function main() {
     address,
     abi,
     functionName: 'createBounty',
-    args: [taskId, 'test: detect suspicious withdrawal pattern'],
+    args: [taskId, 'test: detect suspicious withdrawal pattern', 'withdrawal-anomaly'],
     value: reward,
   })
   await publicClient.waitForTransactionReceipt({ hash: createHash })

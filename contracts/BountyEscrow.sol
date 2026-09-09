@@ -16,6 +16,7 @@ contract BountyEscrow {
         address creator;
         uint256 reward;
         string description;
+        string taskType;
         Status status;
         address agent;
         bytes answer;
@@ -24,7 +25,13 @@ contract BountyEscrow {
     address public immutable verifier;
     mapping(bytes32 => Bounty) public bounties;
 
-    event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, string description);
+    event BountyCreated(
+        bytes32 indexed taskId,
+        address indexed creator,
+        uint256 reward,
+        string description,
+        string taskType
+    );
     event BountyClaimed(bytes32 indexed taskId, address indexed agent);
     event SubmissionCreated(bytes32 indexed taskId, address indexed agent, bytes answer);
     event BountyCompleted(bytes32 indexed taskId, bool verified);
@@ -40,18 +47,22 @@ contract BountyEscrow {
         verifier = _verifier;
     }
 
-    function createBounty(bytes32 taskId, string calldata description) external payable {
+    function createBounty(bytes32 taskId, string calldata description, string calldata taskType)
+        external
+        payable
+    {
         require(bounties[taskId].status == Status.None, "task exists");
         require(msg.value > 0, "must fund bounty");
         bounties[taskId] = Bounty({
             creator: msg.sender,
             reward: msg.value,
             description: description,
+            taskType: taskType,
             status: Status.Open,
             agent: address(0),
             answer: ""
         });
-        emit BountyCreated(taskId, msg.sender, msg.value, description);
+        emit BountyCreated(taskId, msg.sender, msg.value, description, taskType);
     }
 
     /// @notice An agent claims an open bounty before doing any work. Prevents a second agent
