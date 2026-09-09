@@ -41,6 +41,35 @@ function identityBadgeClass(identity: string) {
   return 'border-info/30 bg-info-bg text-info'
 }
 
+// The two workers that always compete in a race (matches backend/routes/agent.js's
+// RACE_IDENTITIES). Plain-language stages so someone with zero context can follow along —
+// the raw technical step names are still available in the collapsible log below.
+const RACE_PARTICIPANTS = ['researcher', 'intern']
+
+const STAGES = ['Reviewing the job', 'Grabbing the job', 'Doing the work', 'Handing in the answer']
+
+interface AgentProgress {
+  stageIndex: number
+  done: boolean
+  blocked: { atStage: number; reason: string } | null
+}
+
+function deriveAgentProgress(entries: RaceLogEntry[], erroredOut: boolean): AgentProgress {
+  const steps = new Set(entries.map((e) => e.step))
+  let stageIndex = 0
+  if (steps.has('allowed')) stageIndex = 1
+  if (steps.has('claimed')) stageIndex = 2
+  if (steps.has('submitted')) stageIndex = 3
+
+  let blocked: AgentProgress['blocked'] = null
+  if (steps.has('skip-unsupported-task')) blocked = { atStage: 0, reason: "Doesn't know how to do this kind of job" }
+  else if (steps.has('skip-blocked')) blocked = { atStage: 0, reason: 'Too expensive for its spending limit' }
+  else if (steps.has('skip-claim-failed')) blocked = { atStage: 1, reason: 'Another agent grabbed it first' }
+  else if (erroredOut) blocked = { atStage: stageIndex, reason: 'Ran into a problem — see the log below' }
+
+  return { stageIndex, done: steps.has('submitted'), blocked }
+}
+
 export default function Bounty() {
   const { taskId } = useParams<{ taskId?: string }>()
   const [bounty, setBounty] = useState<BountyDetails | null>(null)
@@ -202,10 +231,10 @@ export default function Bounty() {
             <div>
               <span className="label">Activate</span>
               <p className="mt-1.5 mb-3 text-sm text-dim">
-                Every configured agent identity races to claim this bounty at once — only one can
-                win (the contract's claim is exclusive). The winner pays, does the work, and
-                submits, then <strong className="text-heading">agentbounty.eth</strong> checks the
-                submission and pays out immediately — no human click.
+                Two AI agents — <strong className="text-heading">researcher</strong> and{' '}
+                <strong className="text-heading">intern</strong> — will both try to grab this job at
+                the same time. Only one can win it. The winner does the work and gets paid
+                automatically, with no human needing to click anything.
               </p>
 
               {raceLog.length === 0 && (
@@ -214,45 +243,157 @@ export default function Bounty() {
                 </button>
               )}
 
-              {raceLog.length > 0 && (
-                <div className="mt-1 flex flex-col gap-3">
-                  {raceResult && (
-                    <div
-                      className={`rounded-lg border px-4 py-3 text-sm ${
-                        raceResult.winner ? 'border-live/30 bg-live-bg text-live' : 'border-danger/30 bg-danger-bg text-danger'
-                      }`}
-                    >
-                      {raceResult.winner
-                        ? `✓ ${raceResult.winner} won the race and was auto-paid`
-                        : '✕ No identity was able to claim this bounty'}
+              {raceLog.length > 0 && (() => {
+                const participantProgress = RACE_PARTICIPANTS.map((participant) => {
+                  const entries = raceLog.filter((e) => e.identity === participant)
+                  const erroredOut = raceResult?.outcomes.some(
+                    (o) => o.identity === participant && o.outcome === 'error',
+                  )
+                  return { participant, entries, progress: deriveAgentProgress(entries, Boolean(erroredOut)) }
+                })
+                const blocked = participantProgress.filter((p) => p.progress.blocked)
+                const uniqueReasons = [...new Set(blocked.map((p) => p.progress.blocked!.reason))]
+                const bothBlocked = Boolean(raceResult) && !raceResult?.winner && blocked.length > 0
+                const blockedSummary = !bothBlocked
+                  ? null
+                  : uniqueReasons.length === 1
+                    ? `Neither agent could take this job — ${uniqueReasons[0].toLowerCase()}.`
+                    : blocked.map((p) => `${p.participant} — ${p.progress.blocked!.reason.toLowerCase()}`).join('. ') + '.'
+
+                const managerEntries = raceLog.filter((e) => e.identity.startsWith('agentbounty'))
+                const managerSteps = new Set(managerEntries.map((e) => e.step))
+                const released = managerEntries.find((e) => e.step === 'released')
+
+                return (
+                <div className="mt-1 flex flex-col gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {participantProgress.map(({ participant, entries, progress }) => {
+                      const isWinner = raceResult?.winner === participant
+                      const isActive = entries.length > 0
+
+                      return (
+                        <div
+                          key={participant}
+                          className={`rounded-xl border p-4 transition-colors ${
+                            isWinner
+                              ? 'border-live/40 bg-live-bg/40'
+                              : progress.blocked
+                                ? 'border-border-soft bg-inset/60'
+                                : 'border-border bg-inset'
+                          }`}
+                        >
+                          <div className="mb-3.5 flex items-center justify-between">
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[12px] ${identityBadgeClass(participant)}`}
+                            >
+                              {participant}
+                            </span>
+                            {isWinner && <span className="badge badge-live">🏆 Winner</span>}
+                            {progress.blocked && <span className="text-[11px] text-dim">Didn't win</span>}
+                            {!isWinner && !progress.blocked && isActive && racing && (
+                              <span className="pulse-dot" />
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-2.5">
+                            {STAGES.map((stageLabel, i) => {
+                              const isBlockedHere = progress.blocked?.atStage === i
+                              const isPastBlocked = progress.blocked && i > progress.blocked.atStage
+                              const isDone = i < progress.stageIndex || (i === progress.stageIndex && progress.done)
+                              const isCurrent = i === progress.stageIndex && !progress.done && !progress.blocked
+
+                              return (
+                                <div key={stageLabel} className="flex items-center gap-2.5 text-[13px]">
+                                  <span
+                                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${
+                                      isBlockedHere
+                                        ? 'border-danger/30 bg-danger-bg text-danger'
+                                        : isPastBlocked
+                                          ? 'border-border bg-inset text-dim'
+                                          : isDone
+                                            ? 'border-live/30 bg-live-bg text-live'
+                                            : isCurrent
+                                              ? 'border-heading/40 bg-surface text-heading'
+                                              : 'border-border bg-inset text-dim'
+                                    }`}
+                                  >
+                                    {isBlockedHere ? '✕' : isPastBlocked ? '—' : isDone ? '✓' : i + 1}
+                                  </span>
+                                  <span className={isPastBlocked ? 'text-dim line-through' : isDone || isCurrent ? 'text-heading' : 'text-dim'}>
+                                    {stageLabel}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {progress.blocked && (
+                            <p className="mt-3 border-t border-border-soft pt-2.5 text-xs text-dim">
+                              {progress.blocked.reason}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {blockedSummary && (
+                    <div className="rounded-xl border border-danger/30 bg-danger-bg px-4 py-3 text-sm text-danger">
+                      ✕ {blockedSummary}
                     </div>
                   )}
 
-                  <div className="max-h-[30vh] overflow-y-auto rounded-2xl border border-border bg-surface px-5 shadow-lg shadow-black/20">
-                    <div className="flex flex-col">
-                      {raceLog.map((entry, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-3 border-b border-border-soft py-2.5 last:border-0"
-                        >
-                          <span
-                            className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[11px] ${identityBadgeClass(entry.identity)}`}
-                          >
-                            {entry.identity}
-                          </span>
-                          <span className="font-mono text-[12px] text-muted">{entry.step}</span>
-                        </div>
-                      ))}
-                      {racing && (
-                        <div className="flex items-center gap-2 py-2.5">
-                          <span className="pulse-dot" />
-                          <span className="font-mono text-[12px] text-dim">racing…</span>
-                        </div>
-                      )}
+                  {managerEntries.length > 0 && (
+                    <div
+                      className={`rounded-xl border px-4 py-3 text-sm ${
+                        released
+                          ? released.data.verified
+                            ? 'border-live/30 bg-live-bg text-live'
+                            : 'border-danger/30 bg-danger-bg text-danger'
+                          : 'border-border-soft bg-inset text-muted'
+                      }`}
+                    >
+                      {released
+                        ? released.data.verified
+                          ? `✓ agentbounty.eth double-checked the work and paid ${raceResult?.winner} automatically`
+                          : '✕ agentbounty.eth found the answer didn\'t hold up — no payment was made'
+                        : managerSteps.has('comparison')
+                          ? 'agentbounty.eth is deciding whether to pay out…'
+                          : 'agentbounty.eth is double-checking the work…'}
                     </div>
-                  </div>
+                  )}
+
+                  <details className="rounded-xl border border-border-soft">
+                    <summary className="cursor-pointer px-4 py-2.5 text-xs text-dim select-none">
+                      Show technical log
+                    </summary>
+                    <div className="max-h-[30vh] overflow-y-auto border-t border-border-soft px-4">
+                      <div className="flex flex-col">
+                        {raceLog.map((entry, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 border-b border-border-soft py-2 last:border-0"
+                          >
+                            <span
+                              className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 font-mono text-[11px] ${identityBadgeClass(entry.identity)}`}
+                            >
+                              {entry.identity}
+                            </span>
+                            <span className="font-mono text-[12px] text-muted">{entry.step}</span>
+                          </div>
+                        ))}
+                        {racing && (
+                          <div className="flex items-center gap-2 py-2">
+                            <span className="pulse-dot" />
+                            <span className="font-mono text-[12px] text-dim">racing…</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </details>
                 </div>
-              )}
+                )
+              })()}
             </div>
           )}
 
