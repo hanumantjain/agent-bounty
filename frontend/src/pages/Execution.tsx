@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAgentStatus } from '../lib/agentStatus'
 
 interface LogEntry {
@@ -27,7 +28,7 @@ export default function Execution() {
   const [log, setLog] = useState<LogEntry[]>([])
   const [running, setRunningLocal] = useState(false)
   const [now, setNow] = useState(() => Date.now())
-  const [finalState, setFinalState] = useState<'idle' | 'blocked' | 'verified' | 'rejected'>('idle')
+  const [finalState, setFinalState] = useState<'idle' | 'blocked' | 'submitted'>('idle')
   const sourceRef = useRef<EventSource | null>(null)
   const logRef = useRef<LogEntry[]>([])
 
@@ -64,11 +65,7 @@ export default function Execution() {
     source.addEventListener('agent-result', (e) => {
       const result = JSON.parse(e.data)
       if (result.outcome === 'blocked') setFinalState('blocked')
-    })
-
-    source.addEventListener('verification-result', (e) => {
-      const result = JSON.parse(e.data)
-      setFinalState(result.verified ? 'verified' : 'rejected')
+      if (result.outcome === 'submitted') setFinalState('submitted')
     })
 
     source.addEventListener('error', (e: MessageEvent) => {
@@ -103,17 +100,14 @@ export default function Execution() {
   const allowedData = (find(log, 'allowed') ?? find(log, 'blocked')) as
     | { allowed?: boolean; priceHbar?: number; limitHbar?: number }
     | undefined
+  const claimedData = find(log, 'claimed') as { claimTxHash?: string } | undefined
   const paidData = find(log, 'paid') as
     | { settlement?: { transaction?: string }; data?: { withdrawals?: unknown[] } }
     | undefined
   const analysisData = find(log, 'analysis') as { verdict?: string } | undefined
   const submittedData = find(log, 'submitted') as { submitTxHash?: string } | undefined
-  const verifyComparison = find(log, 'verify:comparison') as { verified?: boolean } | undefined
-  const verifyReleased = find(log, 'verify:released') as { hash?: string; verified?: boolean } | undefined
-  const verifyBounty = find(log, 'verify:bounty') as { reward?: string } | undefined
 
   const priceHbar = priceData?.priceTinybars ? Number(priceData.priceTinybars) / TINYBARS_PER_HBAR : null
-  const rewardHbar = verifyBounty?.reward ? Number(verifyBounty.reward) / TINYBARS_PER_HBAR : null
 
   const milestones = [
     {
@@ -126,6 +120,12 @@ export default function Execution() {
           : `Spend limit: ${limitData.limitHbar} HBAR`
         : null,
       ok: allowedData ? Boolean(allowedData.allowed) : undefined,
+    },
+    {
+      key: 'claim',
+      label: 'Claim',
+      reached: Boolean(claimedData),
+      detail: claimedData ? 'Bounty claimed on-chain' : null,
     },
     {
       key: 'graph',
@@ -149,20 +149,7 @@ export default function Execution() {
       key: 'submit',
       label: 'Submission',
       reached: Boolean(submittedData),
-      detail: submittedData ? 'Answer submitted on-chain' : null,
-    },
-    {
-      key: 'verify',
-      label: 'Verification',
-      reached: Boolean(verifyComparison),
-      detail: verifyComparison ? (verifyComparison.verified ? 'Independently verified' : 'Verification failed') : null,
-      ok: verifyComparison?.verified,
-    },
-    {
-      key: 'reward',
-      label: 'Reward',
-      reached: Boolean(verifyReleased?.verified),
-      detail: verifyReleased?.verified && rewardHbar !== null ? `+${rewardHbar} HBAR` : null,
+      detail: submittedData ? 'Answer submitted on-chain — awaiting human review' : null,
     },
   ]
 
@@ -170,7 +157,7 @@ export default function Execution() {
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
         <h1>Live Execution</h1>
-        <p className="mt-1.5 text-sm text-dim">Watch the agent discover, pay, work and earn — in real time.</p>
+        <p className="mt-1.5 text-sm text-dim">Watch the agent discover, decide, claim, pay and work — in real time.</p>
       </div>
 
       <div className="mb-6 flex items-center gap-2">
@@ -191,14 +178,17 @@ export default function Execution() {
 
       {finalState === 'blocked' && (
         <div className="banner banner-blocked">
-          ⛔ BLOCKED — price exceeded this identity's spending limit. No payment was attempted.
+          ⛔ BLOCKED — price exceeded this identity's spending limit. No claim or payment was attempted.
         </div>
       )}
-      {finalState === 'verified' && (
-        <div className="banner banner-success">✓ Verified independently — reward released.</div>
-      )}
-      {finalState === 'rejected' && (
-        <div className="banner banner-blocked">✗ Independent verification failed — reward withheld.</div>
+      {finalState === 'submitted' && (
+        <div className="banner banner-success">
+          ✓ Answer submitted on-chain — head to{' '}
+          <Link to="/bounty" className="underline">
+            Bounty Details
+          </Link>{' '}
+          to review and approve.
+        </div>
       )}
 
       {/* Milestone timeline */}
@@ -262,16 +252,12 @@ const STEP_META: Record<string, { label: string }> = {
   price: { label: 'Price received' },
   'resolve-ens': { label: 'Reading ENSv2 policy' },
   'spending-limit': { label: 'Spending limit resolved' },
-  allowed: { label: 'ENSv2 permission granted' },
+  allowed: { label: 'ENSv2 permission granted — deciding to claim' },
   blocked: { label: 'ENSv2 permission denied' },
+  claiming: { label: 'Claiming bounty on-chain' },
+  claimed: { label: 'Bounty claimed' },
   paying: { label: 'Paying via Hedera x402' },
   paid: { label: 'Payment settled, data received' },
   analysis: { label: 'Analyzing blockchain data' },
   submitted: { label: 'Answer submitted on-chain' },
-  'verify:bounty': { label: 'Verifier reading bounty' },
-  'verify:submitted-answer': { label: 'Verifier reading submission' },
-  'verify:re-querying-graph': { label: 'Verifier re-querying The Graph' },
-  'verify:fresh-analysis': { label: 'Verifier re-running analysis' },
-  'verify:comparison': { label: 'Comparing answers' },
-  'verify:released': { label: 'Releasing reward' },
 }

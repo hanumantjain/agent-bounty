@@ -10,6 +10,7 @@ export const hederaTestnet = defineChain({
 
 export const BOUNTY_ESCROW_ABI = parseAbi([
   'function createBounty(bytes32 taskId, string description) payable',
+  'function claimBounty(bytes32 taskId)',
   'function submitAnswer(bytes32 taskId, bytes answer)',
   'function releaseReward(bytes32 taskId, bool verified)',
   'function getBounty(bytes32 taskId) view returns ((address creator, uint256 reward, string description, uint8 status, address agent, bytes answer))',
@@ -19,7 +20,8 @@ const BOUNTY_CREATED_EVENT = parseAbiItem(
   'event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, string description)',
 )
 
-export const BountyStatus = { None: 0, Open: 1, Submitted: 2, Paid: 3, Rejected: 4 }
+export const BountyStatus = { None: 0, Open: 1, Claimed: 2, Submitted: 3, Paid: 4, Rejected: 5 }
+export const BountyStatusNames = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
 
 export function makeHederaEvmClients(privateKeyEnvVar = 'AGENT_HEDERA_PRIVATE_KEY') {
   const rawKey = process.env[privateKeyEnvVar]
@@ -38,6 +40,18 @@ export async function getBounty(publicClient, contractAddress, taskId) {
     functionName: 'getBounty',
     args: [taskId],
   })
+}
+
+export async function claimBounty({ walletClient, publicClient, contractAddress, account, taskId }) {
+  const hash = await walletClient.writeContract({
+    address: contractAddress,
+    abi: BOUNTY_ESCROW_ABI,
+    functionName: 'claimBounty',
+    args: [taskId],
+    account,
+  })
+  await publicClient.waitForTransactionReceipt({ hash })
+  return hash
 }
 
 export async function submitAnswer({ walletClient, publicClient, contractAddress, account, taskId, answerHex }) {

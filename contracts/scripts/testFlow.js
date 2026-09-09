@@ -39,7 +39,26 @@ async function main() {
   const balance = await publicClient.getBalance({ address })
   console.log(`   contract balance: ${balance} wei`)
 
-  console.log('2) submitAnswer...')
+  console.log('2) claimBounty...')
+  const claimHash = await walletClient.writeContract({
+    address,
+    abi,
+    functionName: 'claimBounty',
+    args: [taskId],
+  })
+  await publicClient.waitForTransactionReceipt({ hash: claimHash })
+  console.log(`   tx: ${claimHash}`)
+
+  console.log('2b) claiming the same bounty again (expect revert — already claimed)...')
+  try {
+    await walletClient.writeContract({ address, abi, functionName: 'claimBounty', args: [taskId] })
+    console.error('   ✗ UNEXPECTED: second claim did not revert')
+    process.exit(1)
+  } catch (err) {
+    console.log(`   ✓ reverted as expected: ${err.shortMessage || err.message}`)
+  }
+
+  console.log('3) submitAnswer...')
   const submitHash = await walletClient.writeContract({
     address,
     abi,
@@ -49,7 +68,7 @@ async function main() {
   await publicClient.waitForTransactionReceipt({ hash: submitHash })
   console.log(`   tx: ${submitHash}`)
 
-  console.log('3) releaseReward(verified=true)...')
+  console.log('4) releaseReward(verified=true)...')
   const balanceBefore = await publicClient.getBalance({ address: account.address })
   const releaseHash = await walletClient.writeContract({
     address,
@@ -57,14 +76,14 @@ async function main() {
     functionName: 'releaseReward',
     args: [taskId, true],
   })
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: releaseHash })
+  await publicClient.waitForTransactionReceipt({ hash: releaseHash })
   console.log(`   tx: ${releaseHash}`)
 
   const balanceAfter = await publicClient.getBalance({ address: account.address })
   console.log(`   agent balance before: ${balanceBefore}, after: ${balanceAfter}`)
 
   const bounty = await publicClient.readContract({ address, abi, functionName: 'getBounty', args: [taskId] })
-  console.log('4) final bounty state:', bounty)
+  console.log('5) final bounty state:', bounty)
 }
 
 main().catch((err) => {

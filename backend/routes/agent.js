@@ -19,19 +19,11 @@ router.get('/run', async (req, res) => {
 
   try {
     const { runAgent } = await import('../../agent/lib/runAgent.js')
-    const { verifyBounty } = await import('../../agent/lib/verifier.js')
 
+    // Ends at "submitted" — verification and reward release now happen only when a human
+    // reviews it on the Bounty Details screen (see routes/bounty.js's /check and /decide).
     const result = await runAgent({ identity, onStep: (step, data) => send('step', { step, data }) })
     send('agent-result', result)
-
-    if (result.outcome === 'submitted') {
-      const verification = await verifyBounty({
-        taskId: result.taskId,
-        onStep: (step, data) => send('step', { step: `verify:${step}`, data }),
-      })
-      send('verification-result', verification)
-    }
-
     send('done', {})
   } catch (err) {
     send('error', { message: err.message })

@@ -2,7 +2,7 @@
 
 ### An autonomous AI agent that discovers paid work, pays for the data it needs, and earns an on-chain HBAR reward — with ENSv2 controlling what it's allowed to spend.
 
-AgentBounty is a permissioned labor market for AI agents. A creator posts a bounty funded with HBAR. An agent discovers it, resolves its ENSv2 identity and spending policy on Sepolia, pays for live blockchain data through a Hedera x402-gated service (settled by the Blocky402 facilitator) only if the price is within its authorized limit, analyzes the data using a live subgraph on The Graph, submits its answer on-chain, and gets paid only after an independent verifier re-checks the answer against fresh data.
+AgentBounty is a permissioned labor market for AI agents. A creator posts a bounty funded with HBAR. An agent discovers it, resolves its ENSv2 identity and spending policy on Sepolia, and — only if the price is within its authorized limit — claims the bounty on-chain (so no other agent can also claim it), pays for live blockchain data through a Hedera x402-gated service (settled by the Blocky402 facilitator), analyzes the data using a live subgraph on The Graph, and submits its answer on-chain. A human then reviews it — an independent check re-derives the answer from fresh data as evidence — before approving or rejecting the payout.
 
 > **Agents shouldn't need unrestricted wallets to participate in an economy. They should have identities, permissions, and controlled spending.**
 
@@ -30,7 +30,7 @@ Each agent identity is a real ENSv2 subname (`researcher.<parent>.eth`, `intern.
 
 ### 2. The Graph — Live Blockchain Intelligence
 
-The paid endpoint and the independent verifier both query a live, actively-syncing Messari-standardized lending subgraph for real recent `withdraws` events. The agent's "suspicious activity" analysis runs on whatever that query returns *right now* — not a fixture. The verifier re-runs the same query independently before releasing any reward, so a stale or fabricated answer is caught.
+The paid endpoint and the independent check both query a live, actively-syncing Messari-standardized lending subgraph for real recent `withdraws` events. The agent's "suspicious activity" analysis runs on whatever that query returns *right now* — not a fixture. Before any reward is released, the same query is re-run independently and shown to a human next to the agent's submitted answer, so a stale or fabricated answer is visibly caught rather than trusted.
 
 ### 3. Hedera — Machine Payments & Settlement
 
@@ -40,18 +40,18 @@ The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky
 
 ## How It Works
 
-1. Agent discovers an open bounty from the escrow contract's event log
-2. Resolves its ENSv2 identity and spending policy on Sepolia
-3. Checks its spending limit against the data service's live price
-4. Requests paid data → receives HTTP `402 Payment Required`
-5. Pays via Hedera x402 through Blocky402 — **only if price ≤ spending limit**, otherwise it stops before any funds move
-6. Retrieves live withdrawal data from The Graph
-7. Analyzes the data and flags anomalies (e.g. an unusually large withdrawal)
-8. Submits its answer on-chain to the bounty escrow contract
-9. An independent verifier re-queries The Graph itself, re-runs the analysis, and compares it against the submitted answer
-10. The bounty (HBAR) is released on-chain **only if the answer checks out** — a fabricated or wrong answer gets the reward withheld
+1. A human creator posts a bounty, funded with HBAR, to the escrow contract
+2. An agent discovers the open bounty from the contract's event log
+3. It resolves its ENSv2 identity and spending policy on Sepolia and decides whether it can afford the work — **before** claiming anything
+4. If it can: it claims the bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty
+5. It requests the paid data → receives HTTP `402 Payment Required`
+6. Pays via Hedera x402 through Blocky402 — only reachable because step 3 already confirmed price ≤ spending limit
+7. Retrieves live withdrawal data from The Graph and analyzes it, flagging anomalies (e.g. an unusually large withdrawal)
+8. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
+9. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
+10. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
 
-If a data service's price exceeds the agent's authorized limit — even for an otherwise fully-trusted identity — the payment is blocked and the agent stops. No funds move, no data is purchased, no submission is made. See it live on the **Live Execution** dashboard screen.
+If a data service's price exceeds the agent's authorized limit — even for an otherwise fully-trusted identity — it never claims the bounty at all, and the payment is never attempted. No funds move, no data is purchased, no submission is made. See it live on the **Live Execution** dashboard screen.
 
 ---
 
@@ -87,17 +87,18 @@ If a data service's price exceeds the agent's authorized limit — even for an o
                                   └───────────────┘
 ```
 
-`agent/` is the autonomous agent itself: it holds the Hedera and ENS keys, orchestrates the discover → pay → analyze → submit flow, and independently verifies bounty answers. It runs both as a standalone CLI and as the engine behind the backend's live-execution SSE stream.
+`agent/` is the autonomous agent itself: it holds the Hedera and ENS keys, orchestrates the discover → decide → claim → pay → analyze → submit flow, and provides the independent-check logic a human reviews before approving payout. It runs both as a standalone CLI and as the engine behind the backend's live-execution SSE stream.
 
 The bounty escrow smart contract stays intentionally small:
 
 ```solidity
 createBounty(bytes32 taskId, string description) payable
-submitAnswer(bytes32 taskId, bytes answer)
-releaseReward(bytes32 taskId, bool verified)   // verifier-only
+claimBounty(bytes32 taskId)                          // agent-only, atomic — blocks a second claim
+submitAnswer(bytes32 taskId, bytes answer)           // only the claimant
+releaseReward(bytes32 taskId, bool approved)         // verifier-key-gated, called after human review
 ```
 
-The agent's reasoning stays off-chain; only the economic settlement (bounty creation, submission, reward release) happens on-chain.
+The agent's reasoning stays off-chain; only the economic settlement (bounty creation, claim, submission, reward release) happens on-chain.
 
 ---
 
@@ -107,7 +108,7 @@ Everything below is checkable independently — nothing here is asserted, it's a
 
 | Component | Where to verify |
 |---|---|
-| Bounty escrow contract | [`0.0.10426327`](https://hashscan.io/testnet/contract/0xb2153e4f1645753b125a62fc83ea72e523773493) on Hedera testnet |
+| Bounty escrow contract | [`0.0.10435997`](https://hashscan.io/testnet/contract/0x198b55a99ba81de2ca023632d42efac38e1f620c) on Hedera testnet |
 | Blocky402 facilitator | `https://api.testnet.blocky402.com` (Hedera x402 facilitator) |
 | ENSv2 subname registry (self-deployed) | [`0x7faaa41e9154055e6a988eadc857ccbd41f864c8`](https://sepolia.etherscan.io/address/0x7faaa41e9154055e6a988eadc857ccbd41f864c8) on Sepolia |
 | Live subgraph queried | [`FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A`](https://thegraph.com/explorer/subgraphs/FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A) on The Graph Explorer |
@@ -134,7 +135,8 @@ agentbounty/
 
 - **Least privilege** — agents only receive the permissions they need.
 - **Bounded spending** — an agent never has unlimited purchasing power, enforced by a real on-chain-readable policy, not application logic alone.
-- **Verifiable work** — an agent is never trusted to declare its own success; an independent verifier re-derives the answer from fresh data before any reward moves.
+- **Verifiable work** — an agent is never trusted to declare its own success; an independent, automated re-check re-derives the answer from fresh data as evidence, and a human makes the final call before any reward moves.
+- **Exclusive claims** — a bounty can only be claimed by one agent at a time, atomically enforced on-chain, so two agents can't both do (and get paid for) the same work.
 - **On-chain settlement** — payments and rewards have independently verifiable transaction records.
 
 ---
@@ -160,9 +162,11 @@ Run the agent directly (after setup):
 
 ```bash
 npm run agent:create-bounty   # creator posts a bounty
-npm run agent:start           # researcher identity — pays, analyzes, submits
-npm run agent:start:blocked   # intern identity — blocked before any payment
+npm run agent:start           # researcher identity — decides, claims, pays, analyzes, submits
+npm run agent:start:blocked   # intern identity — never claims; blocked before any payment
 ```
+
+The bounty then sits at `Submitted` until a human reviews it — either via the **Bounty Details** dashboard screen (Check answer → Approve/Reject) or `agent/scripts/runVerifier.js <taskId>`, which runs the same independent check and acts on its own verdict immediately (useful for scripted testing).
 
 Run tests: `npm test` (see [TESTING.md](./TESTING.md) for coverage details).
 

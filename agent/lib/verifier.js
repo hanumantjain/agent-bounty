@@ -8,40 +8,55 @@ function decodeAnswer(answerHex) {
   return JSON.parse(Buffer.from(answerHex.slice(2), 'hex').toString('utf8'))
 }
 
-// Independently verifies a submitted bounty answer against a fresh Graph query, then
-// releases (or withholds) the reward on-chain. Never trusts the agent's self-report.
-export async function verifyBounty({ taskId, onStep = () => {} }) {
-  const { account, publicClient, walletClient } = makeHederaEvmClients()
+// Independently re-checks a submitted bounty answer against a fresh Graph query. Read-only —
+// never trusts the agent's self-report, and never touches the chain. This is the evidence a
+// human reviews before deciding whether to release the reward (see releaseDecision).
+export async function checkAnswer(taskId) {
+  const { publicClient } = makeHederaEvmClients()
 
   const bounty = await getBounty(publicClient, BOUNTY_CONTRACT_ADDRESS, taskId)
-  onStep('bounty', bounty)
   if (bounty.status !== BountyStatus.Submitted) {
     throw new Error(`bounty is not in Submitted state (status=${bounty.status})`)
   }
 
   const submitted = decodeAnswer(bounty.answer)
-  onStep('submitted-answer', submitted)
-
-  onStep('re-querying-graph', {})
   const freshWithdrawals = await fetchRecentWithdrawsIndependently({ first: 10 })
   const freshAnalysis = analyzeWithdrawals(freshWithdrawals)
-  onStep('fresh-analysis', freshAnalysis)
 
-  const verified =
+  const matches =
     submitted.verdict === freshAnalysis.verdict &&
     submitted.largestWithdrawal?.hash === freshAnalysis.largestWithdrawal?.hash
 
-  onStep('comparison', { verified })
+  return { matches, submitted, freshAnalysis }
+}
+
+// Releases or withholds the reward based on an explicit human decision. The contract doesn't
+// know a human was involved — this is just the one caller allowed to call releaseReward.
+export async function releaseDecision(taskId, approved) {
+  const { account, publicClient, walletClient } = makeHederaEvmClients()
 
   const hash = await walletClient.writeContract({
     address: BOUNTY_CONTRACT_ADDRESS,
     abi: BOUNTY_ESCROW_ABI,
     functionName: 'releaseReward',
-    args: [taskId, verified],
+    args: [taskId, approved],
     account,
   })
   await publicClient.waitForTransactionReceipt({ hash })
-  onStep('released', { hash, verified })
 
-  return { verified, releaseTxHash: hash, submitted, freshAnalysis }
+  return { approved, releaseTxHash: hash }
+}
+
+// Convenience wrapper for the CLI: runs the automated check, then acts on its own verdict
+// immediately (no human in the loop) — useful for scripted testing, not the dashboard path.
+export async function verifyBounty({ taskId, onStep = () => {} }) {
+  const { matches, submitted, freshAnalysis } = await checkAnswer(taskId)
+  onStep('submitted-answer', submitted)
+  onStep('fresh-analysis', freshAnalysis)
+  onStep('comparison', { verified: matches })
+
+  const { releaseTxHash } = await releaseDecision(taskId, matches)
+  onStep('released', { hash: releaseTxHash, verified: matches })
+
+  return { verified: matches, releaseTxHash, submitted, freshAnalysis }
 }

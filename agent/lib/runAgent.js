@@ -4,7 +4,7 @@ import { buildAndSignPayment } from './hederaPay.js'
 import { resolveSpendingLimit } from './ens.js'
 import { checkAffordability } from './decide.js'
 import { analyzeWithdrawals } from './analyze.js'
-import { makeHederaEvmClients, discoverLatestOpenBounty, submitAnswer } from './bountyEscrow.js'
+import { makeHederaEvmClients, discoverLatestOpenBounty, claimBounty, submitAnswer } from './bountyEscrow.js'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
 const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
@@ -27,6 +27,8 @@ export async function runAgent({ identity, onStep = () => {} }) {
   }
   onStep('bounty-found', found)
 
+  // Decide whether this identity can afford to do the work — before claiming it, so a claim
+  // is never made on a bounty the agent then has to walk away from.
   onStep('probe-price', { path: RESOURCE_PATH })
   const probe = await fetch(`${BACKEND_URL}${RESOURCE_PATH}`)
   if (probe.status !== 402) throw new Error(`expected 402, got ${probe.status}: ${await probe.text()}`)
@@ -46,6 +48,18 @@ export async function runAgent({ identity, onStep = () => {} }) {
     return { outcome: 'blocked', decision }
   }
   onStep('allowed', decision)
+
+  // Claim the bounty on-chain now that this identity has decided it can do the work. If a
+  // second agent already claimed it in the meantime, this reverts.
+  onStep('claiming', { taskId: found.taskId })
+  const claimTxHash = await claimBounty({
+    walletClient,
+    publicClient: hederaEvm,
+    contractAddress: BOUNTY_CONTRACT_ADDRESS,
+    account,
+    taskId: found.taskId,
+  })
+  onStep('claimed', { taskId: found.taskId, claimTxHash })
 
   const transaction = await buildAndSignPayment(
     {

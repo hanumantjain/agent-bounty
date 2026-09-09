@@ -6,6 +6,7 @@ contract BountyEscrow {
     enum Status {
         None,
         Open,
+        Claimed,
         Submitted,
         Paid,
         Rejected
@@ -24,6 +25,7 @@ contract BountyEscrow {
     mapping(bytes32 => Bounty) public bounties;
 
     event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, string description);
+    event BountyClaimed(bytes32 indexed taskId, address indexed agent);
     event SubmissionCreated(bytes32 indexed taskId, address indexed agent, bytes answer);
     event BountyCompleted(bytes32 indexed taskId, bool verified);
     event RewardReleased(bytes32 indexed taskId, address indexed agent, uint256 reward);
@@ -52,16 +54,26 @@ contract BountyEscrow {
         emit BountyCreated(taskId, msg.sender, msg.value, description);
     }
 
-    function submitAnswer(bytes32 taskId, bytes calldata answer) external {
+    /// @notice An agent claims an open bounty before doing any work. Prevents a second agent
+    ///         from also submitting against the same bounty.
+    function claimBounty(bytes32 taskId) external {
         Bounty storage b = bounties[taskId];
         require(b.status == Status.Open, "not open");
         b.agent = msg.sender;
+        b.status = Status.Claimed;
+        emit BountyClaimed(taskId, msg.sender);
+    }
+
+    function submitAnswer(bytes32 taskId, bytes calldata answer) external {
+        Bounty storage b = bounties[taskId];
+        require(b.status == Status.Claimed, "not claimed");
+        require(b.agent == msg.sender, "not claimant");
         b.answer = answer;
         b.status = Status.Submitted;
         emit SubmissionCreated(taskId, msg.sender, answer);
     }
 
-    /// @notice Called by the independent verifier after re-checking the agent's answer.
+    /// @notice Called after a human reviews the independent verifier's evidence.
     function releaseReward(bytes32 taskId, bool verified) external onlyVerifier {
         Bounty storage b = bounties[taskId];
         require(b.status == Status.Submitted, "not submitted");

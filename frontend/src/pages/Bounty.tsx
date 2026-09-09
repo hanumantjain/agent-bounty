@@ -11,27 +11,74 @@ interface BountyDetails {
   contractAddress: string
 }
 
+interface CheckResult {
+  matches: boolean
+  submitted: { verdict: string; largestWithdrawal: unknown }
+  freshAnalysis: { verdict: string; largestWithdrawal: unknown }
+}
+
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 
 export default function Bounty() {
   const [bounty, setBounty] = useState<BountyDetails | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null)
+  const [checkError, setCheckError] = useState<string | null>(null)
+  const [deciding, setDeciding] = useState(false)
 
   const load = () => {
     fetch('/api/bounty/current')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no bounty found'))))
-      .then(setBounty)
+      .then((data) => {
+        setBounty(data)
+        setCheckResult(null)
+        setCheckError(null)
+      })
       .catch((e) => setError(e.message))
   }
 
   useEffect(load, [])
 
+  const runCheck = async () => {
+    if (!bounty) return
+    setChecking(true)
+    setCheckError(null)
+    try {
+      const res = await fetch(`/api/bounty/${bounty.taskId}/check`)
+      if (!res.ok) throw new Error((await res.json()).error ?? 'check failed')
+      setCheckResult(await res.json())
+    } catch (e) {
+      setCheckError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const decide = async (approved: boolean) => {
+    if (!bounty) return
+    setDeciding(true)
+    try {
+      const res = await fetch(`/api/bounty/${bounty.taskId}/decide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'decision failed')
+      load()
+    } catch (e) {
+      setCheckError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDeciding(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
         <h1>Bounty Details</h1>
-        <p className="mt-1 text-sm text-dim">Task, submission, verification and payout status.</p>
+        <p className="mt-1 text-sm text-dim">Task, submission, human review and payout status.</p>
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
@@ -61,7 +108,7 @@ export default function Bounty() {
             <span>{hbar(bounty.rewardTinybars)} HBAR</span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="label">Agent</span>
+            <span className="label">Agent (claimant)</span>
             <span className="font-mono text-xs">{bounty.agent ?? '—'}</span>
           </div>
 
@@ -75,10 +122,62 @@ export default function Bounty() {
           )}
 
           {bounty.status === 'Paid' && (
-            <div className="banner banner-success">✓ Independent verification passed — reward paid out.</div>
+            <div className="banner banner-success">✓ Approved — reward paid out.</div>
           )}
           {bounty.status === 'Rejected' && (
-            <div className="banner banner-blocked">✗ Independent verification failed — reward withheld.</div>
+            <div className="banner banner-blocked">✗ Rejected — reward withheld.</div>
+          )}
+
+          {bounty.status === 'Submitted' && (
+            <div>
+              <span className="label">Human review</span>
+              <p className="mt-1.5 mb-3 text-sm text-dim">
+                Run an independent check against fresh Graph data before deciding. The agent's
+                answer alone is never trusted.
+              </p>
+
+              {!checkResult && (
+                <button className="btn-ghost" onClick={runCheck} disabled={checking}>
+                  {checking ? 'Checking…' : 'Check answer'}
+                </button>
+              )}
+
+              {checkError && <p className="mt-2 text-sm text-danger">{checkError}</p>}
+
+              {checkResult && (
+                <div className="mt-1 flex flex-col gap-3">
+                  <div
+                    className={`rounded-lg border px-4 py-3 text-sm ${
+                      checkResult.matches ? 'border-live/30 bg-live-bg text-live' : 'border-danger/30 bg-danger-bg text-danger'
+                    }`}
+                  >
+                    {checkResult.matches
+                      ? '✓ Independent check matches the submitted answer'
+                      : '✕ Independent check does NOT match the submitted answer'}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-border-soft bg-inset p-3">
+                      <div className="label mb-1">Submitted</div>
+                      <div className="text-sm text-heading">{checkResult.submitted.verdict}</div>
+                    </div>
+                    <div className="rounded-lg border border-border-soft bg-inset p-3">
+                      <div className="label mb-1">Fresh re-check</div>
+                      <div className="text-sm text-heading">{checkResult.freshAnalysis.verdict}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button className="btn-primary" onClick={() => decide(true)} disabled={deciding}>
+                      {deciding ? 'Submitting…' : 'Approve & Release'}
+                    </button>
+                    <button className="btn-ghost" onClick={() => decide(false)} disabled={deciding}>
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex items-center justify-between">

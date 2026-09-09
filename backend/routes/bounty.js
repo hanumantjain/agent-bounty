@@ -11,7 +11,7 @@ function decodeAnswer(answerHex) {
   }
 }
 
-const STATUS_NAMES = ['None', 'Open', 'Submitted', 'Paid', 'Rejected']
+const STATUS_NAMES = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
 
 function serializeBounty(taskId, bounty) {
   return {
@@ -36,6 +36,27 @@ router.get('/current', async (req, res) => {
       dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+router.get('/:taskId/check', async (req, res) => {
+  try {
+    const { checkAnswer } = await import('../../agent/lib/verifier.js')
+    const result = await checkAnswer(req.params.taskId)
+    res.json(result)
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
+router.post('/:taskId/decide', async (req, res) => {
+  try {
+    const { releaseDecision } = await import('../../agent/lib/verifier.js')
+    const approved = Boolean(req.body?.approved)
+    const result = await releaseDecision(req.params.taskId, approved)
+    res.json(result)
   } catch (err) {
     res.status(502).json({ error: err.message })
   }
