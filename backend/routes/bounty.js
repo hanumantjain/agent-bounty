@@ -41,6 +41,32 @@ router.get('/current', async (req, res) => {
   }
 })
 
+router.post('/create', async (req, res) => {
+  try {
+    const description = String(req.body?.description ?? '').trim()
+    const rewardHbar = Number(req.body?.rewardHbar)
+
+    if (!description) return res.status(400).json({ error: 'description is required' })
+    if (!(rewardHbar > 0)) return res.status(400).json({ error: 'rewardHbar must be a positive number' })
+
+    const { makeHederaEvmClients, createBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { account, publicClient, walletClient } = makeHederaEvmClients()
+
+    const result = await createBounty({
+      walletClient,
+      publicClient,
+      contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
+      account,
+      description,
+      rewardHbar,
+    })
+
+    res.json(result)
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
 router.get('/:taskId/check', async (req, res) => {
   try {
     const { checkAnswer } = await import('../../agent/lib/verifier.js')

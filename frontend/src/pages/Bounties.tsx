@@ -26,12 +26,23 @@ export default function Bounties() {
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const [showForm, setShowForm] = useState(false)
+  const [description, setDescription] = useState('')
+  const [rewardHbar, setRewardHbar] = useState('0.05')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  const loadBounty = () => {
     fetch('/api/bounty/current')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('no bounty found'))))
-      .then(setBounty)
+      .then((data) => {
+        setBounty(data)
+        setError(null)
+      })
       .catch((e) => setError(e.message))
-  }, [isRunning])
+  }
+
+  useEffect(loadBounty, [isRunning])
 
   useEffect(() => {
     fetch(`/api/bounty/identity/${activeIdentity}`)
@@ -40,12 +51,40 @@ export default function Bounties() {
       .catch(() => setIdentity(null))
   }, [activeIdentity])
 
+  const submitBounty = async () => {
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const res = await fetch('/api/bounty/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, rewardHbar }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'failed to create bounty')
+      setDescription('')
+      setRewardHbar('0.05')
+      setShowForm(false)
+      loadBounty()
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       {/* Status strip */}
-      <div className="mb-6 flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
-        <span className={isRunning ? 'pulse-dot' : 'inline-flex h-2 w-2 rounded-full bg-dim'} />
-        <span className={isRunning ? 'text-live' : 'text-dim'}>{isRunning ? 'Agent Active' : 'Agent Idle'}</span>
+      <div className="mb-6 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
+          <span className={isRunning ? 'pulse-dot' : 'inline-flex h-2 w-2 rounded-full bg-dim'} />
+          <span className={isRunning ? 'text-live' : 'text-dim'}>{isRunning ? 'Agent Active' : 'Agent Idle'}</span>
+        </div>
+        {!showForm && (
+          <button className="btn-ghost" onClick={() => setShowForm(true)}>
+            + Post a Bounty
+          </button>
+        )}
       </div>
 
       <div className="mb-8">
@@ -57,9 +96,43 @@ export default function Bounties() {
         </p>
       </div>
 
+      {showForm && (
+        <div className="card mb-6">
+          <span className="label">Post a bounty</span>
+          <textarea
+            className="w-full resize-none rounded-lg border border-border bg-inset p-3 text-sm text-heading placeholder:text-dim"
+            rows={2}
+            placeholder="Describe the task, e.g. Analyze recent protocol activity and determine whether a withdrawal pattern is suspicious"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <div className="flex items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="label">Reward (HBAR)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-32 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
+                value={rewardHbar}
+                onChange={(e) => setRewardHbar(e.target.value)}
+              />
+            </div>
+            <button className="btn-primary" onClick={submitBounty} disabled={creating || !description.trim()}>
+              {creating ? 'Posting…' : 'Fund & Post'}
+            </button>
+            <button className="btn-ghost" onClick={() => setShowForm(false)} disabled={creating}>
+              Cancel
+            </button>
+          </div>
+          {createError && <p className="text-sm text-danger">{createError}</p>}
+          <p className="text-xs text-dim">Funds the bounty with real testnet HBAR in the same transaction.</p>
+        </div>
+      )}
+
       {error && (
         <p className="text-sm text-danger">
-          {error} — create one by running <code>npm run create-bounty</code> in <code>agent/</code>
+          {error} — post one above, or run <code>npm run create-bounty</code> in <code>agent/</code>
         </p>
       )}
 

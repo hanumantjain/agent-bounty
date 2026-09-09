@@ -1,5 +1,4 @@
-import { keccak256, stringToHex, parseEther } from 'viem'
-import { makeHederaEvmClients, BOUNTY_ESCROW_ABI } from '../lib/bountyEscrow.js'
+import { makeHederaEvmClients, createBounty } from '../lib/bountyEscrow.js'
 
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
 const DESCRIPTION = process.argv[2] || 'Analyze recent protocol activity and determine whether a withdrawal pattern is suspicious'
@@ -9,22 +8,17 @@ async function main() {
   if (!BOUNTY_CONTRACT_ADDRESS) throw new Error('BOUNTY_CONTRACT_ADDRESS not set')
   const { account, publicClient, walletClient } = makeHederaEvmClients()
 
-  const taskId = keccak256(stringToHex(`bounty-${Date.now()}`))
-  const reward = parseEther(REWARD_HBAR)
-
   console.log(`creator: ${account.address}`)
-  console.log(`taskId: ${taskId}`)
   console.log(`funding: ${REWARD_HBAR} HBAR`)
 
-  const hash = await walletClient.writeContract({
-    address: BOUNTY_CONTRACT_ADDRESS,
-    abi: BOUNTY_ESCROW_ABI,
-    functionName: 'createBounty',
-    args: [taskId, DESCRIPTION],
-    value: reward,
+  const { taskId, hash } = await createBounty({
+    walletClient,
+    publicClient,
+    contractAddress: BOUNTY_CONTRACT_ADDRESS,
     account,
+    description: DESCRIPTION,
+    rewardHbar: REWARD_HBAR,
   })
-  await publicClient.waitForTransactionReceipt({ hash })
 
   console.log(`✓ bounty created — tx: ${hash}`)
   console.log(`  taskId: ${taskId}`)

@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, defineChain, parseAbi, parseAbiItem } from 'viem'
+import { createPublicClient, createWalletClient, http, defineChain, parseAbi, parseAbiItem, parseEther, keccak256, stringToHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
 export const hederaTestnet = defineChain({
@@ -40,6 +40,20 @@ export async function getBounty(publicClient, contractAddress, taskId) {
     functionName: 'getBounty',
     args: [taskId],
   })
+}
+
+export async function createBounty({ walletClient, publicClient, contractAddress, account, description, rewardHbar }) {
+  const taskId = keccak256(stringToHex(`bounty-${Date.now()}`))
+  const hash = await walletClient.writeContract({
+    address: contractAddress,
+    abi: BOUNTY_ESCROW_ABI,
+    functionName: 'createBounty',
+    args: [taskId, description],
+    value: parseEther(String(rewardHbar)),
+    account,
+  })
+  await publicClient.waitForTransactionReceipt({ hash })
+  return { taskId, hash }
 }
 
 export async function claimBounty({ walletClient, publicClient, contractAddress, account, taskId }) {
