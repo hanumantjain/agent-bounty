@@ -1,11 +1,13 @@
 const express = require('express')
-const { PRICING, priceForFirst } = require('../lib/graph')
+const { PRICING, priceForFirst, TOKEN_PRICING, priceForFirstInToken } = require('../lib/graph')
 
 const router = express.Router()
 
 // Data is priced per-item now (see backend/routes/data.js), so there's no single flat price to
 // show — this is a representative baseline at the default sample size, for display purposes.
+// Two figures now, since the endpoint genuinely accepts either asset (see requirePayment.js).
 const BASELINE_DATA_PRICE_TINYBARS = priceForFirst(PRICING.defaultFirst)
+const BASELINE_DATA_PRICE_ADC_UNITS = TOKEN_PRICING.tokenId ? priceForFirstInToken(PRICING.defaultFirst) : null
 
 function decodeAnswer(answerHex) {
   if (!answerHex || answerHex === '0x') return null
@@ -47,6 +49,7 @@ router.get('/list', async (req, res) => {
       .map(({ taskId, bounty }) => ({
         ...serializeBounty(taskId, bounty, resolveAgentLabel(bounty.agent), resolveAgentLabel(bounty.creator)),
         dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
+      dataPriceAdcUnits: BASELINE_DATA_PRICE_ADC_UNITS,
         contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
       }))
       .reverse() // newest first for display
@@ -65,6 +68,7 @@ router.get('/current', async (req, res) => {
     res.json({
       ...serializeBounty(found.taskId, found.bounty, resolveAgentLabel(found.bounty.agent), resolveAgentLabel(found.bounty.creator)),
       dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
+      dataPriceAdcUnits: BASELINE_DATA_PRICE_ADC_UNITS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
   } catch (err) {
@@ -112,6 +116,7 @@ router.get('/:taskId', async (req, res) => {
     res.json({
       ...serializeBounty(req.params.taskId, bounty, resolveAgentLabel(bounty.agent), resolveAgentLabel(bounty.creator)),
       dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
+      dataPriceAdcUnits: BASELINE_DATA_PRICE_ADC_UNITS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
   } catch (err) {

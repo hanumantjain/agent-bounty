@@ -12,6 +12,7 @@ interface Bounty {
   agent: string | null
   agentLabel: string | null
   dataPriceTinybars: string
+  dataPriceAdcUnits: number | null
 }
 
 interface Identity {
@@ -27,6 +28,7 @@ interface TaskTypeDef {
 
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
+const adc = (units: number) => (units / 100).toFixed(2)
 
 const TASK_ICONS: Record<string, string> = {
   'withdrawal-anomaly': '↓',
@@ -232,7 +234,15 @@ export default function Bounties() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="label">Data cost</span>
-                <span className="text-xl font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-xl font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
+                  {bounty.dataPriceAdcUnits !== null && (
+                    <>
+                      <span className="text-sm text-dim">or</span>
+                      <span className="text-xl font-bold text-heading">{adc(bounty.dataPriceAdcUnits)} ADC</span>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="col-span-2 flex flex-col gap-1">
                 <span className="label">Agent</span>
