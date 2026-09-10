@@ -56,6 +56,24 @@ export async function getBounty(publicClient, contractAddress, taskId) {
   })
 }
 
+/// Same as getBounty, but with the reward field restored from the immutable BountyCreated event
+/// once the live value has been zeroed by a payout — see withOriginalReward below for why.
+export async function getBountyWithOriginalReward(publicClient, contractAddress, taskId) {
+  const bounty = await getBounty(publicClient, contractAddress, taskId)
+  if (bounty.status === BountyStatus.None) return bounty
+  const latestBlock = await publicClient.getBlockNumber()
+  const fromBlock = latestBlock > LOG_WINDOW_BLOCKS ? latestBlock - LOG_WINDOW_BLOCKS : 0n
+  const logs = await publicClient.getLogs({
+    address: contractAddress,
+    event: BOUNTY_CREATED_EVENT,
+    args: { taskId },
+    fromBlock,
+    toBlock: 'latest',
+  })
+  if (logs.length === 0) return bounty
+  return withOriginalReward(bounty, logs[0].args.reward)
+}
+
 // Hedera's JSON-RPC relay (Hashio) has been observed to under-estimate gas for writes that
 // include a native HBAR transfer (releaseReward) — the pre-flight simulation viem runs inside
 // writeContract passes, but the transaction is then mined with too little gas and reverts with
@@ -130,13 +148,22 @@ async function recentBountyCreatedLogs(publicClient, contractAddress) {
   })
 }
 
+// releaseReward() zeroes the contract's stored `reward` the instant it pays out (checks-effects-
+// interactions, not a bug) — so a live getBounty() read on a Paid/Rejected bounty always shows 0.
+// The BountyCreated event's `reward` field is immutable and never changes, so it's the only
+// reliable source for "what was this bounty ever funded for" once it's done. Every discovery
+// function below overwrites the live-read reward with the event's original value for display.
+function withOriginalReward(bounty, eventReward) {
+  return { ...bounty, reward: eventReward }
+}
+
 export async function discoverLatestOpenBounty(publicClient, contractAddress) {
   const logs = await recentBountyCreatedLogs(publicClient, contractAddress)
   for (let i = logs.length - 1; i >= 0; i--) {
     const taskId = logs[i].args.taskId
     const bounty = await getBounty(publicClient, contractAddress, taskId)
     if (bounty.status === BountyStatus.Open) {
-      return { taskId, bounty }
+      return { taskId, bounty: withOriginalReward(bounty, logs[i].args.reward) }
     }
   }
   return null
@@ -146,9 +173,10 @@ export async function discoverLatestOpenBounty(publicClient, contractAddress) {
 export async function discoverLatestBounty(publicClient, contractAddress) {
   const logs = await recentBountyCreatedLogs(publicClient, contractAddress)
   if (logs.length === 0) return null
-  const taskId = logs[logs.length - 1].args.taskId
+  const lastLog = logs[logs.length - 1]
+  const taskId = lastLog.args.taskId
   const bounty = await getBounty(publicClient, contractAddress, taskId)
-  return { taskId, bounty }
+  return { taskId, bounty: withOriginalReward(bounty, lastLog.args.reward) }
 }
 
 /// All bounties regardless of status, oldest first — the full on-chain history.
@@ -158,9 +186,39 @@ export async function discoverAllBounties(publicClient, contractAddress) {
   for (let i = 0; i < logs.length; i++) {
     const taskId = logs[i].args.taskId
     const bounty = await getBounty(publicClient, contractAddress, taskId)
-    results.push({ taskId, bounty })
+    results.push({ taskId, bounty: withOriginalReward(bounty, logs[i].args.reward) })
   }
   return results
+}
+
+// Known worker/manager identities, for labeling an on-chain agent address back to its ENS
+// subname in the dashboard (the contract itself only ever sees addresses, never names).
+const KNOWN_IDENTITIES = ['researcher', 'intern', 'director']
+
+let identityAddressMap = null
+function buildIdentityAddressMap() {
+  const map = new Map()
+  for (const label of KNOWN_IDENTITIES) {
+    const creds = resolveIdentityCreds(label)
+    const rawKey = process.env[creds.privateKeyEnvVar]
+    if (!rawKey) continue
+    const privateKey = rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`
+    map.set(privateKeyToAccount(privateKey).address.toLowerCase(), label)
+  }
+  const managerKey = process.env.AGENT_HEDERA_PRIVATE_KEY
+  if (managerKey) {
+    const privateKey = managerKey.startsWith('0x') ? managerKey : `0x${managerKey}`
+    map.set(privateKeyToAccount(privateKey).address.toLowerCase(), 'agentbounty.eth')
+  }
+  return map
+}
+
+/// Maps an on-chain agent/verifier address back to its identity label (researcher/intern/
+/// director/agentbounty.eth), or null if the address doesn't match any configured identity.
+export function resolveAgentLabel(address) {
+  if (!address) return null
+  if (!identityAddressMap) identityAddressMap = buildIdentityAddressMap()
+  return identityAddressMap.get(address.toLowerCase()) ?? null
 }
 
 /// Every currently-open bounty, oldest first — the agent's real candidate pool, not just

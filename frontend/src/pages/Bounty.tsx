@@ -9,6 +9,7 @@ interface BountyDetails {
   taskType: string
   status: string
   agent: string | null
+  agentLabel: string | null
   answer: { verdict: string; threshold: number; largest: unknown } | null
   contractAddress: string
 }
@@ -226,7 +227,16 @@ export default function Bounty() {
           </div>
           <div className="flex items-baseline justify-between">
             <span className="label">Agent (claimant)</span>
-            <span className="font-mono text-xs">{bounty.agent ?? '—'}</span>
+            <span className="font-mono text-xs">
+              {bounty.agent ? (
+                <>
+                  {bounty.agentLabel && <span className="mr-1.5 font-sans font-semibold text-heading">{bounty.agentLabel}</span>}
+                  {bounty.agent}
+                </>
+              ) : (
+                '—'
+              )}
+            </span>
           </div>
 
           {bounty.answer && (

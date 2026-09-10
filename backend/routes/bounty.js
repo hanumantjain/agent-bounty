@@ -18,7 +18,7 @@ function decodeAnswer(answerHex) {
 
 const STATUS_NAMES = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
 
-function serializeBounty(taskId, bounty) {
+function serializeBounty(taskId, bounty, agentLabel) {
   return {
     taskId,
     creator: bounty.creator,
@@ -27,6 +27,7 @@ function serializeBounty(taskId, bounty) {
     taskType: bounty.taskType,
     status: STATUS_NAMES[bounty.status],
     agent: bounty.agent === '0x0000000000000000000000000000000000000000' ? null : bounty.agent,
+    agentLabel: agentLabel ?? null,
     answer: decodeAnswer(bounty.answer),
   }
 }
@@ -38,12 +39,12 @@ router.get('/task-types', async (req, res) => {
 
 router.get('/list', async (req, res) => {
   try {
-    const { makeHederaEvmClients, discoverAllBounties } = await import('../../agent/lib/bountyEscrow.js')
+    const { makeHederaEvmClients, discoverAllBounties, resolveAgentLabel } = await import('../../agent/lib/bountyEscrow.js')
     const { publicClient } = makeHederaEvmClients()
     const all = await discoverAllBounties(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS)
     const bounties = all
       .map(({ taskId, bounty }) => ({
-        ...serializeBounty(taskId, bounty),
+        ...serializeBounty(taskId, bounty, resolveAgentLabel(bounty.agent)),
         dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
         contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
       }))
@@ -56,12 +57,12 @@ router.get('/list', async (req, res) => {
 
 router.get('/current', async (req, res) => {
   try {
-    const { makeHederaEvmClients, discoverLatestBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { makeHederaEvmClients, discoverLatestBounty, resolveAgentLabel } = await import('../../agent/lib/bountyEscrow.js')
     const { publicClient } = makeHederaEvmClients()
     const found = await discoverLatestBounty(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS)
     if (!found) return res.status(404).json({ error: 'no bounty found' })
     res.json({
-      ...serializeBounty(found.taskId, found.bounty),
+      ...serializeBounty(found.taskId, found.bounty, resolveAgentLabel(found.bounty.agent)),
       dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
@@ -103,12 +104,12 @@ router.post('/create', async (req, res) => {
 
 router.get('/:taskId', async (req, res) => {
   try {
-    const { makeHederaEvmClients, getBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { makeHederaEvmClients, getBountyWithOriginalReward, resolveAgentLabel } = await import('../../agent/lib/bountyEscrow.js')
     const { publicClient } = makeHederaEvmClients()
-    const bounty = await getBounty(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS, req.params.taskId)
+    const bounty = await getBountyWithOriginalReward(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS, req.params.taskId)
     if (bounty.status === 0) return res.status(404).json({ error: 'bounty not found' })
     res.json({
-      ...serializeBounty(req.params.taskId, bounty),
+      ...serializeBounty(req.params.taskId, bounty, resolveAgentLabel(bounty.agent)),
       dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })

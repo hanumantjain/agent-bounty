@@ -10,6 +10,7 @@ interface Bounty {
   taskType: string
   status: string
   agent: string | null
+  agentLabel: string | null
   dataPriceTinybars: string
 }
 
@@ -236,7 +237,11 @@ export default function Bounties() {
               <div className="col-span-2 flex flex-col gap-1">
                 <span className="label">Agent</span>
                 <span className="font-mono text-xs text-heading">
-                  {bounty.agent ? `${bounty.agent.slice(0, 10)}…` : '—'}
+                  {bounty.agent
+                    ? bounty.agentLabel
+                      ? `${bounty.agentLabel} · ${bounty.agent.slice(0, 10)}…`
+                      : `${bounty.agent.slice(0, 10)}…`
+                    : '—'}
                 </span>
               </div>
             </div>
