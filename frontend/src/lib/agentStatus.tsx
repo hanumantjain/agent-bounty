@@ -1,7 +1,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 
 interface LastPayment {
-  amountHbar: number
+  amount: number
+  asset: 'HBAR' | 'ADC'
   identity: string
   at: number
 }

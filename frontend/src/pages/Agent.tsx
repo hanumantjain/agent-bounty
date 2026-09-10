@@ -12,6 +12,7 @@ interface WalletTransaction {
   result: string
   timestampMs: number
   netHbar: number
+  netAdc: number
 }
 
 interface Wallet {
@@ -53,8 +54,10 @@ export default function Agent() {
   }, [selected])
 
   const spentForThisIdentity = lastPayment?.identity === selected ? lastPayment : null
-  const usedFraction =
-    identity && spentForThisIdentity ? Math.min(1, spentForThisIdentity.amountHbar / identity.spendingLimitHbar) : 0
+  // The progress bar visualizes the HBAR-denominated ENS spending limit specifically — an ADC
+  // payment doesn't draw against that limit at all, so it shouldn't move this bar.
+  const spentHbar = spentForThisIdentity?.asset === 'HBAR' ? spentForThisIdentity.amount : null
+  const usedFraction = identity && spentHbar !== null ? Math.min(1, spentHbar / identity.spendingLimitHbar) : 0
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -156,7 +159,9 @@ export default function Agent() {
             </div>
             <div className="mt-1.5 text-xs text-dim">
               {spentForThisIdentity
-                ? `Last spent ${spentForThisIdentity.amountHbar} HBAR`
+                ? `Last spent ${spentForThisIdentity.amount} ${spentForThisIdentity.asset}${
+                    spentForThisIdentity.asset === 'ADC' ? " — doesn't count against this HBAR limit" : ''
+                  }`
                 : 'No payments made yet this session'}
             </div>
           </div>
@@ -179,35 +184,44 @@ export default function Agent() {
           {wallet.transactions.length === 0 && <p className="text-sm text-dim">No transactions yet.</p>}
 
           <div className="flex flex-col">
-            {wallet.transactions.map((tx) => (
-              <a
-                key={tx.id}
-                href={`https://hashscan.io/testnet/transaction/${tx.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 text-[13px] no-underline last:border-0 hover:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] ${
-                      tx.result === 'SUCCESS'
-                        ? 'border-live/30 bg-live-bg text-live'
-                        : 'border-danger/30 bg-danger-bg text-danger'
-                    }`}
-                  >
-                    {tx.netHbar > 0 ? '↓' : tx.netHbar < 0 ? '↑' : '•'}
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-heading">{TX_TYPE_LABELS[tx.type] ?? tx.type}</span>
-                    <span className="text-[11px] text-dim">{new Date(tx.timestampMs).toLocaleString()}</span>
+            {wallet.transactions.map((tx) => {
+              // Prefer whichever asset actually moved for this transaction — a token-only
+              // settlement (paid in ADC) shows 0.0000 HBAR for this account since the
+              // facilitator, not the agent, pays the fee, which would otherwise look like
+              // nothing happened.
+              const primary = tx.netAdc !== 0 ? { amount: tx.netAdc, unit: 'ADC', decimals: 2 } : { amount: tx.netHbar, unit: 'HBAR', decimals: 4 }
+              return (
+                <a
+                  key={tx.id}
+                  href={`https://hashscan.io/testnet/transaction/${tx.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 text-[13px] no-underline last:border-0 hover:bg-white/[0.03]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+                        tx.result === 'SUCCESS'
+                          ? 'border-live/30 bg-live-bg text-live'
+                          : 'border-danger/30 bg-danger-bg text-danger'
+                      }`}
+                    >
+                      {primary.amount > 0 ? '↓' : primary.amount < 0 ? '↑' : '•'}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-heading">{TX_TYPE_LABELS[tx.type] ?? tx.type}</span>
+                      <span className="text-[11px] text-dim">{new Date(tx.timestampMs).toLocaleString()}</span>
+                    </div>
                   </div>
-                </div>
-                <span className={`font-mono text-sm font-semibold ${tx.netHbar > 0 ? 'text-live' : tx.netHbar < 0 ? 'text-heading' : 'text-dim'}`}>
-                  {tx.netHbar > 0 ? '+' : ''}
-                  {tx.netHbar.toFixed(4)} HBAR
-                </span>
-              </a>
-            ))}
+                  <span
+                    className={`font-mono text-sm font-semibold ${primary.amount > 0 ? 'text-live' : primary.amount < 0 ? 'text-heading' : 'text-dim'}`}
+                  >
+                    {primary.amount > 0 ? '+' : ''}
+                    {primary.amount.toFixed(primary.decimals)} {primary.unit}
+                  </span>
+                </a>
+              )
+            })}
           </div>
         </div>
       )}

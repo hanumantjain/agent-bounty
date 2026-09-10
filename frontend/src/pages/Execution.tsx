@@ -91,14 +91,14 @@ export default function Execution() {
       setRunning(false)
       setCurrentStep(null)
 
-      const priceData = find(logRef.current, 'price') as { priceTinybars?: string } | undefined
-      const paidData = find(logRef.current, 'paid') as { settlement?: { transaction?: string } } | undefined
-      if (priceData?.priceTinybars && paidData?.settlement) {
-        recordPayment({
-          amountHbar: Number(priceData.priceTinybars) / TINYBARS_PER_HBAR,
-          identity,
-          at: Date.now(),
-        })
+      const allowedData = find(logRef.current, 'allowed') as
+        | { priceHbar?: number; priceUnits?: number; asset?: 'HBAR' | 'ADC' }
+        | undefined
+      const paidData = find(logRef.current, 'paid') as { asset?: 'HBAR' | 'ADC'; settlement?: { transaction?: string } } | undefined
+      if (paidData?.settlement && allowedData) {
+        const asset: 'HBAR' | 'ADC' = paidData.asset === 'ADC' ? 'ADC' : 'HBAR'
+        const amount = asset === 'ADC' ? Number(allowedData.priceUnits ?? 0) / 100 : Number(allowedData.priceHbar ?? 0)
+        recordPayment({ amount, asset, identity, at: Date.now() })
       }
     })
   }
@@ -106,17 +106,19 @@ export default function Execution() {
   const priceData = find(log, 'price') as { priceTinybars?: string } | undefined
   const limitData = find(log, 'spending-limit') as { limitHbar?: number } | undefined
   const allowedData = (find(log, 'allowed') ?? find(log, 'skip-blocked')) as
-    | { allowed?: boolean; priceHbar?: number; limitHbar?: number }
+    | { allowed?: boolean; priceHbar?: number; limitHbar?: number; priceUnits?: number; asset?: 'HBAR' | 'ADC' }
     | undefined
   const claimedData = find(log, 'claimed') as { claimTxHash?: string } | undefined
   const paidData = find(log, 'paid') as
-    | { settlement?: { transaction?: string }; data?: { items?: unknown[] } }
+    | { asset?: 'HBAR' | 'ADC'; settlement?: { transaction?: string }; data?: { items?: unknown[] } }
     | undefined
   const analysisData = find(log, 'analysis') as { verdict?: string } | undefined
   const submittedData = find(log, 'submitted') as { submitTxHash?: string } | undefined
   const taskData = find(log, 'task-recognized') as { taskType?: string; label?: string } | undefined
 
   const priceHbar = priceData?.priceTinybars ? Number(priceData.priceTinybars) / TINYBARS_PER_HBAR : null
+  const paidAsset: 'HBAR' | 'ADC' = paidData?.asset === 'ADC' ? 'ADC' : 'HBAR'
+  const paidAmount = paidAsset === 'ADC' ? Number(allowedData?.priceUnits ?? 0) / 100 : priceHbar
 
   const milestones = [
     {
@@ -152,7 +154,7 @@ export default function Execution() {
       key: 'hedera',
       label: 'Hedera x402',
       reached: Boolean(paidData?.settlement),
-      detail: priceHbar !== null ? `${priceHbar} HBAR paid` : null,
+      detail: paidData?.settlement && paidAmount !== null ? `${paidAmount.toFixed(2)} ${paidAsset} paid` : null,
     },
     {
       key: 'agent',
