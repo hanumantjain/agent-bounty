@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAgentStatus } from '../lib/agentStatus'
+import { describeStep } from '../lib/stepNarrative'
 
 interface LogEntry {
   step: string
@@ -256,7 +257,7 @@ export default function Execution() {
         <div className="flex flex-col">
           {log.map((entry, i) => (
             <div key={i} className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 last:border-0">
-              <span className="font-mono text-[12px] text-muted">{entry.step}</span>
+              <span className="text-[13px] text-heading">{describeStep(entry.step, entry.data)}</span>
               <span className="shrink-0 text-[11px] text-dim">{relativeTime(entry.at, now)}</span>
             </div>
           ))}

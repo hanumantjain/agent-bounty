@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { describeStep } from '../lib/stepNarrative'
 
 interface BountyDetails {
   taskId: string
@@ -61,6 +62,10 @@ interface AgentProgress {
   blocked: { atStage: number; reason: string } | null
 }
 
+function findEntry(entries: RaceLogEntry[], step: string) {
+  return entries.find((e) => e.step === step)
+}
+
 function deriveAgentProgress(entries: RaceLogEntry[], erroredOut: boolean): AgentProgress {
   const steps = new Set(entries.map((e) => e.step))
   let stageIndex = 0
@@ -69,12 +74,26 @@ function deriveAgentProgress(entries: RaceLogEntry[], erroredOut: boolean): Agen
   if (steps.has('submitted')) stageIndex = 3
 
   let blocked: AgentProgress['blocked'] = null
-  if (steps.has('skip-unsupported-task')) blocked = { atStage: 0, reason: "Doesn't know how to do this kind of job" }
-  else if (steps.has('skip-blocked')) blocked = { atStage: 0, reason: 'Too expensive for its spending limit' }
-  else if (steps.has('skip-claim-failed')) blocked = { atStage: 1, reason: 'Another agent grabbed it first' }
+  const unsupported = findEntry(entries, 'skip-unsupported-task')
+  const priced = findEntry(entries, 'skip-blocked')
+  const claimFailed = findEntry(entries, 'skip-claim-failed')
+  if (unsupported) blocked = { atStage: 0, reason: describeStep(unsupported.step, unsupported.data) }
+  else if (priced) blocked = { atStage: 0, reason: describeStep(priced.step, priced.data) }
+  else if (claimFailed) blocked = { atStage: 1, reason: describeStep(claimFailed.step, claimFailed.data) }
   else if (erroredOut) blocked = { atStage: stageIndex, reason: 'Ran into a problem — see the log below' }
 
   return { stageIndex, done: steps.has('submitted'), blocked }
+}
+
+// A one-sentence, number-backed summary of why an agent won or lost this bounty — pulled
+// straight from its own log entries, not a canned phrase.
+function summarizeOutcome(entries: RaceLogEntry[], isWinner: boolean, blocked: AgentProgress['blocked']): string | null {
+  if (isWinner) {
+    const allowed = findEntry(entries, 'allowed')
+    return allowed ? `Won — ${describeStep('allowed', allowed.data).replace(/^Affordable — /, '')}` : 'Won this race'
+  }
+  if (blocked) return `Lost — ${blocked.reason.replace(/^Skipped — /, '')}`
+  return null
 }
 
 export default function Bounty() {
@@ -284,14 +303,15 @@ export default function Bounty() {
                   )
                   return { participant, entries, progress: deriveAgentProgress(entries, Boolean(erroredOut)) }
                 })
+                const bareReason = (reason: string) => reason.replace(/^Skipped — /, '')
                 const blocked = participantProgress.filter((p) => p.progress.blocked)
-                const uniqueReasons = [...new Set(blocked.map((p) => p.progress.blocked!.reason))]
+                const uniqueReasons = [...new Set(blocked.map((p) => bareReason(p.progress.blocked!.reason)))]
                 const bothBlocked = Boolean(raceResult) && !raceResult?.winner && blocked.length > 0
                 const blockedSummary = !bothBlocked
                   ? null
                   : uniqueReasons.length === 1
                     ? `Neither agent could take this job — ${uniqueReasons[0].toLowerCase()}.`
-                    : blocked.map((p) => `${p.participant} — ${p.progress.blocked!.reason.toLowerCase()}`).join('. ') + '.'
+                    : blocked.map((p) => `${p.participant} — ${bareReason(p.progress.blocked!.reason).toLowerCase()}`).join('. ') + '.'
 
                 const managerEntries = raceLog.filter((e) => e.identity.startsWith('agentbounty'))
                 const managerSteps = new Set(managerEntries.map((e) => e.step))
@@ -303,6 +323,7 @@ export default function Bounty() {
                     {participantProgress.map(({ participant, entries, progress }) => {
                       const isWinner = raceResult?.winner === participant
                       const isActive = entries.length > 0
+                      const outcomeSummary = summarizeOutcome(entries, isWinner, progress.blocked)
 
                       return (
                         <div
@@ -360,9 +381,13 @@ export default function Bounty() {
                             })}
                           </div>
 
-                          {progress.blocked && (
-                            <p className="mt-3 border-t border-border-soft pt-2.5 text-xs text-dim">
-                              {progress.blocked.reason}
+                          {outcomeSummary && (
+                            <p
+                              className={`mt-3 border-t border-border-soft pt-2.5 text-xs ${
+                                isWinner ? 'text-live' : 'text-dim'
+                              }`}
+                            >
+                              {outcomeSummary}
                             </p>
                           )}
                         </div>
@@ -412,7 +437,7 @@ export default function Bounty() {
                             >
                               {entry.identity}
                             </span>
-                            <span className="font-mono text-[12px] text-muted">{entry.step}</span>
+                            <span className="text-[12.5px] text-muted">{describeStep(entry.step, entry.data)}</span>
                           </div>
                         ))}
                         {racing && (
