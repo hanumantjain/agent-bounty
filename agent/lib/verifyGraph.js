@@ -16,15 +16,19 @@ function buildQuery(entity) {
   `
 }
 
-// Independent re-query of the same public subgraph, bypassing the backend entirely —
-// a verifier must not trust the paid service's own claim about what the data says.
-export async function fetchRecentEntityIndependently(entity, { first = 10 } = {}) {
-  if (!ALLOWED_ENTITIES.has(entity)) throw new Error(`unsupported Graph entity: ${entity}`)
+// GRAPH_PROTOCOLS lists every Messari-standardized lending subgraph to query with the exact
+// same GraphQL shape — "one query pattern spanning many protocols," not one subgraph with a
+// varying entity name. Falls back to the single GRAPH_SUBGRAPH_ID as a one-item list.
+function getProtocols() {
+  const raw = process.env.GRAPH_PROTOCOLS
+  if (!raw) return [{ name: 'default', subgraphId: process.env.GRAPH_SUBGRAPH_ID }]
+  return raw.split(',').map((pair) => {
+    const [name, subgraphId] = pair.split(':')
+    return { name, subgraphId }
+  })
+}
 
-  const apiKey = process.env.GRAPH_API_KEY
-  const subgraphId = process.env.GRAPH_SUBGRAPH_ID
-  if (!apiKey || !subgraphId) throw new Error('GRAPH_API_KEY and GRAPH_SUBGRAPH_ID must be set')
-
+async function queryProtocol(apiKey, subgraphId, entity, first) {
   const res = await fetch(`${GATEWAY_URL}/${apiKey}/subgraphs/id/${subgraphId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -39,4 +43,23 @@ export async function fetchRecentEntityIndependently(entity, { first = 10 } = {}
     amountUSD: Number(w.amountUSD),
     timestamp: Number(w.timestamp),
   }))
+}
+
+// Independent re-query of the same public subgraphs, bypassing the backend entirely —
+// a verifier must not trust the paid service's own claim about what the data says.
+export async function fetchRecentEntityIndependently(entity, { first = 10 } = {}) {
+  if (!ALLOWED_ENTITIES.has(entity)) throw new Error(`unsupported Graph entity: ${entity}`)
+
+  const apiKey = process.env.GRAPH_API_KEY
+  if (!apiKey) throw new Error('GRAPH_API_KEY must be set')
+
+  const protocols = getProtocols()
+  const results = await Promise.all(
+    protocols.map(async ({ name, subgraphId }) => {
+      const items = await queryProtocol(apiKey, subgraphId, entity, first)
+      return items.map((item) => ({ ...item, protocol: name }))
+    }),
+  )
+
+  return results.flat()
 }

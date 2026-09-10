@@ -1,6 +1,6 @@
 const express = require('express')
 const { requirePayment } = require('../middleware/requirePayment')
-const { fetchRecentEntity, ALLOWED_ENTITIES } = require('../lib/graph')
+const { fetchRecentEntity, ALLOWED_ENTITIES, getProtocols } = require('../lib/graph')
 
 const router = express.Router()
 
@@ -19,7 +19,7 @@ router.get(
       const items = await fetchRecentEntity(entity, { first: 10 })
       res.json({
         entity,
-        subgraphId: process.env.GRAPH_SUBGRAPH_ID,
+        protocols: getProtocols().map((p) => p.name),
         fetchedAt: new Date().toISOString(),
         items,
       })

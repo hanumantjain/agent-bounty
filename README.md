@@ -32,7 +32,7 @@ The parent name itself, **`agentbounty.eth`**, is the manager — the same Heder
 
 ### 2. The Graph — Live Blockchain Intelligence
 
-The paid endpoint and the independent check both query a live, actively-syncing Messari-standardized lending subgraph — for `withdraws` or `deposits` events, depending on the bounty's task type. The agent's "suspicious activity" analysis runs on whatever that query returns *right now* — not a fixture. Before any reward is released, the same query is re-run independently and shown to a human next to the agent's submitted answer, so a stale or fabricated answer is visibly caught rather than trusted.
+The paid endpoint and the independent check both run **the same GraphQL query across three separate, live, actively-syncing Messari-standardized lending subgraphs** — Morpho Aave V3, Aave V3, and Compound III — for whichever entity (`withdraws`, `deposits`, `borrows`, `repays`, `liquidates`) the bounty's task type calls for. Because every one of these protocols exposes the identical Messari schema, one query shape covers all three with zero protocol-specific code; the results are merged before the anomaly check runs, so "the largest recent amount" is compared across protocols, not within just one. The agent's analysis runs on whatever that composed query returns *right now* — not a fixture. Before any reward is released, the same three-protocol query is re-run independently and shown to a human next to the agent's submitted answer, so a stale or fabricated answer is visibly caught rather than trusted.
 
 ### 3. Hedera — Machine Payments & Settlement
 
@@ -117,7 +117,7 @@ Everything below is checkable independently — nothing here is asserted, it's a
 | Bounty escrow contract | [`0.0.10436913`](https://hashscan.io/testnet/contract/0xa864c2893facdcd54c3fea3bc547da33f5e546d0) on Hedera testnet |
 | Blocky402 facilitator | `https://api.testnet.blocky402.com` (Hedera x402 facilitator) |
 | ENSv2 subname registry (self-deployed) | [`0x7faaa41e9154055e6a988eadc857ccbd41f864c8`](https://sepolia.etherscan.io/address/0x7faaa41e9154055e6a988eadc857ccbd41f864c8) on Sepolia |
-| Live subgraph queried | [`FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A`](https://thegraph.com/explorer/subgraphs/FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A) on The Graph Explorer |
+| Live subgraphs queried (same query, 3 protocols) | [Morpho Aave V3](https://thegraph.com/explorer/subgraphs/FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A) · [Aave V3](https://thegraph.com/explorer/subgraphs/JCNWRypm7FYwV8fx5HhzZPSFaMxgkPuw4TnR3Gpi81zk) · [Compound III](https://thegraph.com/explorer/subgraphs/AwoxEZbiWLvv6e3QdvdMZw4WDURdGbvPfHmZRc8Dpfz9) on The Graph Explorer |
 
 Run the agent yourself (see [SETUP.md](./SETUP.md)) and every step — the 402, the signed Hedera transaction, the live Graph response, the on-chain submission, the verifier's independent re-check, the reward release — produces a real transaction hash you can look up.
 
