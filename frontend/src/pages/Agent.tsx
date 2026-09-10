@@ -17,6 +17,7 @@ interface WalletTransaction {
 interface Wallet {
   accountId: string
   balanceHbar: number | null
+  adcBalance: number | null
   transactions: WalletTransaction[]
 }
 
@@ -126,11 +127,16 @@ export default function Agent() {
 
           <div className="flex items-baseline justify-between border-b border-border pb-3.5">
             <span className="label">Wallet balance</span>
-            <span className="text-xl font-bold text-heading">
-              {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
-                ? `${wallet.balanceHbar.toFixed(2)} HBAR`
-                : '—'}
-            </span>
+            <div className="text-right">
+              <span className="text-xl font-bold text-heading">
+                {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
+                  ? `${wallet.balanceHbar.toFixed(2)} HBAR`
+                  : '—'}
+              </span>
+              {wallet?.adcBalance !== null && wallet?.adcBalance !== undefined && (
+                <div className="mt-0.5 text-xs text-dim">{wallet.adcBalance.toFixed(2)} ADC</div>
+              )}
+            </div>
           </div>
 
           <div>

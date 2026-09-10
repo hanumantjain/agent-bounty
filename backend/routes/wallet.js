@@ -4,6 +4,16 @@ const router = express.Router()
 
 const MIRROR_NODE_URL = process.env.HEDERA_MIRROR_NODE_URL || 'https://testnet.mirrornode.hedera.com'
 const TINYBARS_PER_HBAR = 100_000_000
+const DATA_CREDIT_TOKEN_ID = process.env.DATA_CREDIT_TOKEN_ID || null
+
+async function fetchAdcBalance(accountId) {
+  if (!DATA_CREDIT_TOKEN_ID) return null
+  const res = await fetch(`${MIRROR_NODE_URL}/api/v1/accounts/${accountId}/tokens?token.id=${DATA_CREDIT_TOKEN_ID}`)
+  if (!res.ok) return null
+  const body = await res.json()
+  const entry = (body.tokens || []).find((t) => t.token_id === DATA_CREDIT_TOKEN_ID)
+  return entry ? entry.balance / 100 : 0
+}
 
 // agentbounty.eth's Hedera account is the plain shared one (see agent/lib/verifier.js) — it isn't
 // resolved through resolveIdentityCreds since it was deliberately decided NOT to be a separate
@@ -24,9 +34,10 @@ router.get('/:identity', async (req, res) => {
       return res.status(404).json({ error: `no Hedera account configured for ${req.params.identity}` })
     }
 
-    const [accountRes, txRes] = await Promise.all([
+    const [accountRes, txRes, adcBalance] = await Promise.all([
       fetch(`${MIRROR_NODE_URL}/api/v1/accounts/${accountId}`),
       fetch(`${MIRROR_NODE_URL}/api/v1/transactions?account.id=${accountId}&limit=5&order=desc`),
+      fetchAdcBalance(accountId),
     ])
     if (!accountRes.ok) throw new Error(`mirror node account lookup failed: ${accountRes.status}`)
     if (!txRes.ok) throw new Error(`mirror node transaction lookup failed: ${txRes.status}`)
@@ -47,7 +58,7 @@ router.get('/:identity', async (req, res) => {
       }
     })
 
-    res.json({ identity: req.params.identity, accountId, balanceHbar, transactions })
+    res.json({ identity: req.params.identity, accountId, balanceHbar, adcBalance, transactions })
   } catch (err) {
     res.status(502).json({ error: err.message })
   }
