@@ -56,7 +56,7 @@ The endpoint also accepts a **second, real settlement asset**: a live HTS fungib
 4. Once it finds one it can do: it claims that bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty (and if another agent claims it first in the meantime, the claim reverts and the agent moves on to the next candidate instead)
 5. It requests the paid data → receives HTTP `402 Payment Required`
 6. Pays via Hedera x402 through Blocky402 — only reachable because the affordability check already passed for this bounty
-7. Retrieves live data from The Graph for that task's entity (withdrawals or deposits) and analyzes it, flagging anomalies (e.g. an unusually large amount)
+7. Retrieves live data from The Graph for that task's entity (withdrawals, deposits, borrows, repayments, or liquidations) and analyzes it, flagging anomalies (e.g. an unusually large amount)
 8. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
 9. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
 10. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
@@ -124,6 +124,8 @@ Everything below is checkable independently — nothing here is asserted, it's a
 |---|---|
 | Bounty escrow contract | [`0.0.10457136`](https://hashscan.io/testnet/contract/0xe7d0d61d8a38cc12a9936740611029231d027111) on Hedera testnet |
 | Blocky402 facilitator | `https://api.testnet.blocky402.com` (Hedera x402 facilitator) |
+| HCS payment audit topic | [`0.0.10462976`](https://hashscan.io/testnet/topic/0.0.10462976) — every x402 settlement logged here, independently readable via the mirror node |
+| ADC data-credit token (HTS) | [`0.0.10464008`](https://hashscan.io/testnet/token/0.0.10464008) — the second real settlement asset the paid endpoint accepts |
 | ENSv2 subname registry (self-deployed) | [`0x7faaa41e9154055e6a988eadc857ccbd41f864c8`](https://sepolia.etherscan.io/address/0x7faaa41e9154055e6a988eadc857ccbd41f864c8) on Sepolia |
 | Live subgraphs queried (same query, 3 protocols) | [Morpho Aave V3](https://thegraph.com/explorer/subgraphs/FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A) · [Aave V3](https://thegraph.com/explorer/subgraphs/JCNWRypm7FYwV8fx5HhzZPSFaMxgkPuw4TnR3Gpi81zk) · [Compound III](https://thegraph.com/explorer/subgraphs/AwoxEZbiWLvv6e3QdvdMZw4WDURdGbvPfHmZRc8Dpfz9) on The Graph Explorer |
 
@@ -190,7 +192,7 @@ Run tests: `npm test` (see [TESTING.md](./TESTING.md) for coverage details).
 
 - ENSv2 (Sepolia beta)
 - The Graph
-- Hedera (testnet, x402 via Blocky402)
+- Hedera (testnet) — x402 via Blocky402, Hedera Consensus Service (HCS) for the payment audit trail, Hedera Token Service (HTS) for the second settlement asset
 - Solidity (compiled with `solc`, deployed via `viem`)
 - TypeScript / React / Tailwind CSS
 - Node.js / Express
@@ -198,7 +200,7 @@ Run tests: `npm test` (see [TESTING.md](./TESTING.md) for coverage details).
 
 ## Status
 
-🚧 Hackathon MVP — fully functional on testnet (Hedera testnet + Sepolia). One creator, one bounty, one agent, one verifier — intentionally small scope, real end-to-end execution.
+🚧 Hackathon MVP — fully functional on testnet (Hedera testnet + Sepolia). One creator, many simultaneously-open bounties, three independent worker identities (each with its own Hedera account, ENS spending policy, and real HTS token balance) racing or working solo, one verifier — real end-to-end execution throughout, not a single hardcoded path.
 
 ## License
 
