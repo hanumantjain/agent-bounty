@@ -174,7 +174,10 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     // against the exact same sample size — otherwise a budget-constrained agent that
     // genuinely only looked at (say) 2 records could be unfairly rejected for not seeing an
     // anomaly outside a window it could never have afforded to look at.
-    const analysis = { ...analyzeAmounts(body.items), firstPerProtocol: desiredFirst }
+    // hcsAudit travels with the answer too — since it's stored permanently on-chain, this
+    // makes the payment's independently-checkable HCS audit record recoverable forever from
+    // the bounty itself, not just visible in the live step log at the moment it happened.
+    const analysis = { ...analyzeAmounts(body.items), firstPerProtocol: desiredFirst, hcsAudit: settlement?.hcsAudit ?? null }
     onStep('analysis', { taskId, ...analysis })
 
     const answerHex = toHex(JSON.stringify(analysis))

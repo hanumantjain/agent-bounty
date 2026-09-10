@@ -60,8 +60,11 @@ export function describeStep(step: string, data: Record<string, unknown>): strin
       return `Payment failed — ${data.error ?? 'the facilitator rejected the transaction'}`
     case 'paid': {
       const items = (data.data as { items?: unknown[] } | undefined)?.items?.length
-      const tx = (data.settlement as { transaction?: string } | undefined)?.transaction
-      return `Paid and received ${items ?? '—'} records from The Graph (tx ${short(tx)})`
+      const settlement = data.settlement as { transaction?: string; hcsAudit?: { topicId?: string; sequenceNumber?: string } } | undefined
+      const base = `Paid and received ${items ?? '—'} records from The Graph (tx ${short(settlement?.transaction)})`
+      return settlement?.hcsAudit
+        ? `${base} — logged to HCS topic ${settlement.hcsAudit.topicId}, sequence ${settlement.hcsAudit.sequenceNumber}`
+        : base
     }
     case 'analysis':
       return `Analysis complete: ${data.verdict} (based on ${data.firstPerProtocol} records per protocol)`

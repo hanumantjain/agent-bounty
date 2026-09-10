@@ -42,6 +42,24 @@ function requirePayment({ amountTinybars, resource }) {
     try {
       await verify(paymentPayload, paymentRequirements)
       const settlement = await settle(paymentPayload, paymentRequirements)
+
+      // Best-effort: log this settlement to the HCS audit topic for an independently
+      // verifiable payment trail. Never let a transient HCS hiccup block the actual paid
+      // response — the core payment flow doesn't depend on this extra proof layer.
+      try {
+        const { submitPaymentAudit } = await import('../../agent/lib/hcsAudit.js')
+        settlement.hcsAudit = await submitPaymentAudit({
+          resource,
+          amountTinybars: resolvedAmount,
+          payTo: paymentRequirements.payTo,
+          payer: settlement.payer,
+          settlementTransaction: settlement.transaction,
+          network: NETWORK,
+        })
+      } catch (err) {
+        console.error('HCS audit log failed (non-fatal):', err.message)
+      }
+
       res.set('X-PAYMENT-RESPONSE', Buffer.from(JSON.stringify(settlement)).toString('base64'))
       req.payment = settlement
       next()

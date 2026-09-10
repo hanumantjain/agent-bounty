@@ -12,7 +12,12 @@ interface BountyDetails {
   status: string
   agent: string | null
   agentLabel: string | null
-  answer: { verdict: string; threshold: number; largest: unknown } | null
+  answer: {
+    verdict: string
+    threshold: number
+    largest: unknown
+    hcsAudit: { topicId: string; sequenceNumber: string; transactionId: string } | null
+  } | null
   contractAddress: string
 }
 
@@ -260,6 +265,19 @@ export default function Bounty() {
               <pre className="overflow-x-auto rounded-md bg-inset px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-all text-muted">
                 {JSON.stringify(bounty.answer, null, 2)}
               </pre>
+              {bounty.answer.hcsAudit && (
+                <p className="mt-1.5 text-xs text-dim">
+                  Data payment logged to HCS topic {bounty.answer.hcsAudit.topicId} (sequence{' '}
+                  {bounty.answer.hcsAudit.sequenceNumber}) —{' '}
+                  <a
+                    href={`https://hashscan.io/testnet/topic/${bounty.answer.hcsAudit.topicId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    view the audit trail on HashScan
+                  </a>
+                </p>
+              )}
             </>
           )}
 

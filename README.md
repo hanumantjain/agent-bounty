@@ -42,6 +42,8 @@ Pricing for this data is **usage-based, not flat**: `GET /api/data/pricing` expo
 
 The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky402** x402 facilitator on Hedera testnet. The agent builds and signs a real `TransferTransaction`, the facilitator verifies and settles it, and the bounty itself is a small Solidity escrow contract deployed on Hedera testnet (compiled with `solc`, deployed via `viem` against Hedera's JSON-RPC relay) that funds, tracks submissions, and pays out HBAR on independent verification.
 
+Every settlement is also logged to a dedicated **Hedera Consensus Service (HCS) topic** (`0.0.10462976`) — a verifiable, independently-checkable payment audit trail, not just an app-side log. The backend submits a `TopicMessageSubmitTransaction` right after each x402 settlement (resource, amount, payer, payTo, the underlying settlement tx id), and the resulting `{topicId, sequenceNumber}` travels with the agent's on-chain answer, so any past payment can be looked up forever via the mirror node: `GET /api/v1/topics/{topicId}/messages/{sequenceNumber}`. Confirmed live — a message logged for a real 4.95 HBAR payment decoded back, independently, to the exact same amount, payer, and settlement transaction id.
+
 ---
 
 ## How It Works

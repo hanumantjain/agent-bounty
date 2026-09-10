@@ -81,7 +81,12 @@ export async function getBountyWithOriginalReward(publicClient, contractAddress,
 // every write here pins a generous explicit gas limit and checks receipt.status itself —
 // otherwise a silent on-chain failure would be treated as success by every caller.
 export async function writeAndConfirm(walletClient, publicClient, { address, abi, functionName, args, account, value }) {
-  const hash = await walletClient.writeContract({ address, abi, functionName, args, account, value, gas: 300_000n })
+  // Hashio's own gas estimation under-shoots for these writes (see the module comment above),
+  // so every call pins an explicit limit rather than trusting the pre-flight estimate. Bumped
+  // from 300_000 after submitAnswer started reverting with INSUFFICIENT_GAS once the answer
+  // payload grew slightly (embedding the HCS audit record) — plenty of headroom now, and an
+  // unused gas limit doesn't cost extra on Hedera, only gas actually consumed does.
+  const hash = await walletClient.writeContract({ address, abi, functionName, args, account, value, gas: 600_000n })
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
   if (receipt.status !== 'success') {
     throw new Error(`${functionName} reverted on-chain (tx ${hash})`)
