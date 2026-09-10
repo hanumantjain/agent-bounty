@@ -1,4 +1,4 @@
-const SUSPICIOUS_THRESHOLD_USD = 50_000
+export const SUSPICIOUS_THRESHOLD_USD = 50_000
 
 // Generic anomaly check shared by every task type — "is there an item whose USD amount
 // exceeds the threshold?" The caller decides which live data set (withdrawals, deposits, ...)

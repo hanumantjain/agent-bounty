@@ -13,6 +13,12 @@ interface BountyDetails {
   contractAddress: string
 }
 
+interface TaskTypeDef {
+  label: string
+  entity: string
+  description: string
+}
+
 interface CheckResult {
   matches: boolean
   submitted: { verdict: string; largest: unknown }
@@ -73,6 +79,7 @@ function deriveAgentProgress(entries: RaceLogEntry[], erroredOut: boolean): Agen
 export default function Bounty() {
   const { taskId } = useParams<{ taskId?: string }>()
   const [bounty, setBounty] = useState<BountyDetails | null>(null)
+  const [taskTypes, setTaskTypes] = useState<Record<string, TaskTypeDef>>({})
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null)
@@ -97,6 +104,13 @@ export default function Bounty() {
   }
 
   useEffect(load, [taskId])
+
+  useEffect(() => {
+    fetch('/api/bounty/task-types')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then(setTaskTypes)
+      .catch(() => setTaskTypes({}))
+  }, [])
 
   useEffect(() => {
     return () => raceSourceRef.current?.close()
@@ -190,9 +204,13 @@ export default function Bounty() {
             <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
           </div>
 
+          {taskTypes[bounty.taskType]?.description && (
+            <p className="-mt-2 text-sm text-dim">{taskTypes[bounty.taskType].description}</p>
+          )}
+
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
             <span className="label">Task type</span>
-            <span className="text-xs text-heading">{bounty.taskType}</span>
+            <span className="text-xs text-heading">{taskTypes[bounty.taskType]?.label ?? bounty.taskType}</span>
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
             <span className="label">Task ID</span>

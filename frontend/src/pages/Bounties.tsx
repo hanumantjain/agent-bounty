@@ -21,6 +21,7 @@ interface Identity {
 interface TaskTypeDef {
   label: string
   entity: string
+  description: string
 }
 
 const TINYBARS_PER_HBAR = 100_000_000
@@ -172,6 +173,7 @@ export default function Bounties() {
               Cancel
             </button>
           </div>
+          {taskTypes[taskType] && <p className="text-xs text-dim">{taskTypes[taskType].description}</p>}
           {createError && <p className="text-sm text-danger">{createError}</p>}
           <p className="text-xs text-dim">Funds the bounty with real testnet HBAR in the same transaction.</p>
         </div>
@@ -221,6 +223,10 @@ export default function Bounties() {
               </div>
               <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
             </div>
+
+            {taskTypes[bounty.taskType]?.description && (
+              <p className="-mt-2 text-xs text-dim">{taskTypes[bounty.taskType].description}</p>
+            )}
 
             <div className="grid grid-cols-2 gap-6 border-t border-border pt-5">
               <div className="flex flex-col gap-1">
