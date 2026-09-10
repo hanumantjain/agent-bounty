@@ -87,7 +87,7 @@ npm run dev:frontend            # terminal 2
 
 npm run agent:create-bounty     # posts a real funded bounty
 npm run agent:start             # researcher identity: pays, analyzes, submits
-npm run agent:start:blocked     # intern identity: blocked before any payment
+npm run agent:start:intern      # intern identity: same flow, smaller budget buys a smaller sample
 ```
 
 Or drive the whole thing from the dashboard at `http://localhost:5173` — the **Live Execution** screen runs the same flow with a live step-by-step view.

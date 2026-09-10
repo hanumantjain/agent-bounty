@@ -66,4 +66,24 @@ async function fetchRecentEntity(entity, { first = 10 } = {}) {
   return results.flat()
 }
 
-module.exports = { fetchRecentEntity, ALLOWED_ENTITIES, getProtocols }
+// Usage-based pricing: price scales with how much data is actually delivered — records
+// requested per protocol, times how many protocols are composed into the answer — rather than
+// one flat number charged for every call regardless of what's asked for.
+const PRICING = {
+  pricePerItemTinybars: Number(process.env.PRICE_PER_ITEM_TINYBARS || '30000'),
+  minFirst: 1,
+  maxFirst: 50,
+  defaultFirst: 10,
+}
+
+function clampFirst(raw) {
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return PRICING.defaultFirst
+  return Math.min(Math.max(Math.floor(n), PRICING.minFirst), PRICING.maxFirst)
+}
+
+function priceForFirst(first) {
+  return PRICING.pricePerItemTinybars * first * getProtocols().length
+}
+
+module.exports = { fetchRecentEntity, ALLOWED_ENTITIES, getProtocols, PRICING, clampFirst, priceForFirst }

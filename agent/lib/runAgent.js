@@ -20,6 +20,11 @@ const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
 const PARENT_LABEL = process.env.ENS_PARENT_LABEL
 const SPENDING_LIMIT_KEY = process.env.ENS_SPENDING_LIMIT_KEY || 'agent.spending.limit'
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
+const TINYBARS_PER_HBAR = 100_000_000
+// A demo-sensible ceiling so a very high spending limit doesn't always just buy the max sample
+// size — the interesting signal is "how much more can a bigger budget afford," not "everyone
+// maxes out."
+const FIRST_DEMO_CAP = 20
 
 export async function runAgent({ identity, taskId: targetTaskId, onStep = () => {} }) {
   const subname = `${identity}.${PARENT_LABEL}.eth`
@@ -51,6 +56,14 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
   const limitHbar = await resolveSpendingLimit(ensClient, subname, SPENDING_LIMIT_KEY)
   onStep('spending-limit', { limitHbar })
 
+  // Pricing is per-item, not per-bounty, so it's fetched once — same as the spending limit —
+  // and used to work out how much data this identity can actually afford, rather than always
+  // asking for a hardcoded amount.
+  const pricing = await fetch(`${BACKEND_URL}/api/data/pricing`).then((r) => r.json())
+  const maxAffordableFirst = Math.floor(
+    (limitHbar * TINYBARS_PER_HBAR) / (pricing.pricePerItemTinybars * pricing.protocolCount),
+  )
+
   for (const { taskId, bounty } of candidates) {
     onStep('considering', { taskId, taskType: bounty.taskType })
 
@@ -64,24 +77,41 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     }
     onStep('task-recognized', { taskId, taskType: bounty.taskType, label: task.label })
 
-    const resourcePath = `/api/data/recent-activity?entity=${task.entity}`
+    // Second part of "can I do this work?": can this identity afford it — and if so, how much
+    // data can it actually buy? Decided before claiming, so a claim is never made on a bounty
+    // the agent then has to walk away from. Price is per-item, not flat, so a bigger spending
+    // limit genuinely buys a deeper sample, not just a yes/no.
+    if (maxAffordableFirst < pricing.minFirst) {
+      onStep('skip-blocked', {
+        taskId,
+        allowed: false,
+        reason: 'cannot afford even the minimum sample size',
+        limitHbar,
+        pricePerItemTinybars: pricing.pricePerItemTinybars,
+        protocolCount: pricing.protocolCount,
+      })
+      continue
+    }
+    const desiredFirst = Math.min(maxAffordableFirst, pricing.maxFirst, FIRST_DEMO_CAP)
+    const resourcePath = `/api/data/recent-activity?entity=${task.entity}&first=${desiredFirst}`
 
-    // Second part of "can I do this work?": can this identity afford it? Decided before
-    // claiming, so a claim is never made on a bounty the agent then has to walk away from.
-    onStep('probe-price', { taskId, path: resourcePath })
+    onStep('probe-price', { taskId, path: resourcePath, desiredFirst })
     const probe = await fetch(`${BACKEND_URL}${resourcePath}`)
     if (probe.status !== 402) throw new Error(`expected 402, got ${probe.status}: ${await probe.text()}`)
     const { accepts } = await probe.json()
     const requirements = accepts.find((r) => r.network === NETWORK)
     if (!requirements) throw new Error(`no payment option for network ${NETWORK}`)
-    onStep('price', { taskId, priceTinybars: requirements.amount })
+    onStep('price', { taskId, priceTinybars: requirements.amount, desiredFirst })
 
+    // Safety net: the server-quoted price should always match what we computed above, but
+    // check for real rather than assume — the affordability decision that actually gates the
+    // claim is this one, not the estimate.
     const decision = checkAffordability({ priceTinybars: requirements.amount, limitHbar })
     if (!decision.allowed) {
       onStep('skip-blocked', { taskId, ...decision })
       continue
     }
-    onStep('allowed', { taskId, ...decision })
+    onStep('allowed', { taskId, ...decision, desiredFirst })
 
     // Claim the bounty on-chain now that this identity has decided it can do the work. If a
     // second agent already claimed it in the meantime, this reverts — skip to the next
@@ -140,7 +170,11 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
       : null
     onStep('paid', { taskId, settlement, data: body })
 
-    const analysis = analyzeAmounts(body.items)
+    // firstPerProtocol travels with the answer so the independent verifier can re-check
+    // against the exact same sample size — otherwise a budget-constrained agent that
+    // genuinely only looked at (say) 2 records could be unfairly rejected for not seeing an
+    // anomaly outside a window it could never have afforded to look at.
+    const analysis = { ...analyzeAmounts(body.items), firstPerProtocol: desiredFirst }
     onStep('analysis', { taskId, ...analysis })
 
     const answerHex = toHex(JSON.stringify(analysis))

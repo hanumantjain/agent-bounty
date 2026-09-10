@@ -24,7 +24,12 @@ export async function checkAnswer(taskId) {
   if (!task) throw new Error(`unsupported task type: ${bounty.taskType}`)
 
   const submitted = decodeAnswer(bounty.answer)
-  const freshItems = await fetchRecentEntityIndependently(task.entity, { first: 10 })
+  // Re-check against the exact same sample size the agent actually paid for and looked at
+  // (embedded in its own answer) — not a fixed default. Otherwise a budget-constrained agent
+  // that could only afford a small sample would be unfairly rejected for "missing" an anomaly
+  // outside a window it never had the budget to see in the first place.
+  const first = submitted.firstPerProtocol ?? 10
+  const freshItems = await fetchRecentEntityIndependently(task.entity, { first })
   const freshAnalysis = analyzeAmounts(freshItems)
 
   const matches =

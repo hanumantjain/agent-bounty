@@ -42,7 +42,7 @@ test('a well-formed but fake payment transaction is rejected by the facilitator,
       accepted: {
         scheme: 'exact',
         network: `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`,
-        amount: process.env.X402_PRICE_TINYBARS || '1000000',
+        amount: '1000000',
         asset: '0.0.0',
         payTo: process.env.HEDERA_PAY_TO_ACCOUNT_ID,
         maxTimeoutSeconds: 120,

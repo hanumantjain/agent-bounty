@@ -13,27 +13,27 @@ export const TASK_TYPES = {
   'withdrawal-anomaly': {
     label: 'Detect suspicious withdrawals',
     entity: 'withdraws',
-    description: `Checks the 10 most recent withdrawals ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — a possible sign of an exploit or a bank run.`,
+    description: `Checks as many recent withdrawals as the agent's budget can buy ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — a possible sign of an exploit or a bank run. Data is priced per record, so a bigger budget buys a deeper, more reliable check.`,
   },
   'deposit-anomaly': {
     label: 'Detect unusually large deposits',
     entity: 'deposits',
-    description: `Checks the 10 most recent deposits ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — useful for spotting whale activity or unusual capital inflows.`,
+    description: `Checks as many recent deposits as the agent's budget can buy ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — useful for spotting whale activity or unusual capital inflows. Data is priced per record, so a bigger budget buys a deeper, more reliable check.`,
   },
   'borrow-anomaly': {
     label: 'Detect unusually large borrows',
     entity: 'borrows',
-    description: `Checks the 10 most recent loans taken out ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single borrow is over ${THRESHOLD_LABEL} — large borrows can signal leveraged risk-taking.`,
+    description: `Checks as many recent loans as the agent's budget can buy ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single borrow is over ${THRESHOLD_LABEL} — large borrows can signal leveraged risk-taking. Data is priced per record, so a bigger budget buys a deeper, more reliable check.`,
   },
   'repay-anomaly': {
     label: 'Detect unusually large repayments',
     entity: 'repays',
-    description: `Checks the 10 most recent loan repayments ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — can indicate a large leveraged position being unwound.`,
+    description: `Checks as many recent loan repayments as the agent's budget can buy ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — can indicate a large leveraged position being unwound. Data is priced per record, so a bigger budget buys a deeper, more reliable check.`,
   },
   'liquidation-anomaly': {
     label: 'Detect large liquidations',
     entity: 'liquidates',
-    description: `Checks the 10 most recent forced liquidations ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — a sign a large leveraged position was forcibly closed.`,
+    description: `Checks as many recent forced liquidations as the agent's budget can buy ${ACROSS_PROTOCOLS} and flags it SUSPICIOUS if any single one is over ${THRESHOLD_LABEL} — a sign a large leveraged position was forcibly closed. Data is priced per record, so a bigger budget buys a deeper, more reliable check.`,
   },
 }
 

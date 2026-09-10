@@ -47,10 +47,10 @@ function identityBadgeClass(identity: string) {
   return 'border-info/30 bg-info-bg text-info'
 }
 
-// The two workers that always compete in a race (matches backend/routes/agent.js's
+// The workers that always compete in a race (matches backend/routes/agent.js's
 // RACE_IDENTITIES). Plain-language stages so someone with zero context can follow along —
 // the raw technical step names are still available in the collapsible log below.
-const RACE_PARTICIPANTS = ['researcher', 'intern']
+const RACE_PARTICIPANTS = ['researcher', 'intern', 'director']
 
 const STAGES = ['Reviewing the job', 'Grabbing the job', 'Doing the work', 'Handing in the answer']
 
@@ -249,10 +249,15 @@ export default function Bounty() {
             <div>
               <span className="label">Activate</span>
               <p className="mt-1.5 mb-3 text-sm text-dim">
-                Two AI agents — <strong className="text-heading">researcher</strong> and{' '}
-                <strong className="text-heading">intern</strong> — will both try to grab this job at
-                the same time. Only one can win it. The winner does the work and gets paid
-                automatically, with no human needing to click anything.
+                {RACE_PARTICIPANTS.map((name, i) => (
+                  <span key={name}>
+                    {i > 0 && (i === RACE_PARTICIPANTS.length - 1 ? ' and ' : ', ')}
+                    <strong className="text-heading">{name}</strong>
+                  </span>
+                ))}{' '}
+                will all try to grab this job at the same time. Only one can win it. The winner
+                does the work and gets paid automatically, with no human needing to click
+                anything.
               </p>
 
               {raceLog.length === 0 && (
@@ -284,7 +289,7 @@ export default function Bounty() {
 
                 return (
                 <div className="mt-1 flex flex-col gap-4">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {participantProgress.map(({ participant, entries, progress }) => {
                       const isWinner = raceResult?.winner === participant
                       const isActive = entries.length > 0

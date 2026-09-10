@@ -1,6 +1,11 @@
 const express = require('express')
+const { PRICING, priceForFirst } = require('../lib/graph')
 
 const router = express.Router()
+
+// Data is priced per-item now (see backend/routes/data.js), so there's no single flat price to
+// show — this is a representative baseline at the default sample size, for display purposes.
+const BASELINE_DATA_PRICE_TINYBARS = priceForFirst(PRICING.defaultFirst)
 
 function decodeAnswer(answerHex) {
   if (!answerHex || answerHex === '0x') return null
@@ -39,7 +44,7 @@ router.get('/list', async (req, res) => {
     const bounties = all
       .map(({ taskId, bounty }) => ({
         ...serializeBounty(taskId, bounty),
-        dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
+        dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
         contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
       }))
       .reverse() // newest first for display
@@ -57,7 +62,7 @@ router.get('/current', async (req, res) => {
     if (!found) return res.status(404).json({ error: 'no bounty found' })
     res.json({
       ...serializeBounty(found.taskId, found.bounty),
-      dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
+      dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
   } catch (err) {
@@ -104,7 +109,7 @@ router.get('/:taskId', async (req, res) => {
     if (bounty.status === 0) return res.status(404).json({ error: 'bounty not found' })
     res.json({
       ...serializeBounty(req.params.taskId, bounty),
-      dataPriceTinybars: process.env.X402_PRICE_TINYBARS || '1000000',
+      dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
   } catch (err) {

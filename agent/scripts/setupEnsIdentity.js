@@ -15,8 +15,9 @@ const EXISTING_REGISTRY_ADDRESS = process.env.ENS_EXISTING_REGISTRY_ADDRESS
 const ONLY_IDENTITY = process.env.ENS_ONLY_IDENTITY
 
 const ALL_IDENTITIES = [
-  { label: 'researcher', spendingLimit: '1' },
-  { label: 'intern', spendingLimit: '0.001' },
+  { label: 'researcher', spendingLimit: '5' },
+  { label: 'intern', spendingLimit: '1' },
+  { label: 'director', spendingLimit: '10' },
 ]
 const IDENTITIES = ONLY_IDENTITY ? ALL_IDENTITIES.filter((i) => i.label === ONLY_IDENTITY) : ALL_IDENTITIES
 

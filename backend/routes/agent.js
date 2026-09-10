@@ -36,7 +36,7 @@ router.get('/run', async (req, res) => {
 // claimBounty (see contracts/BountyEscrow.sol) already guarantees only one of them can ever
 // succeed — that's the "race." Whoever wins gets auto-verified and paid immediately with no
 // human click, deliberately different from the manual review path in routes/bounty.js.
-const RACE_IDENTITIES = ['researcher', 'intern']
+const RACE_IDENTITIES = ['researcher', 'intern', 'director']
 
 // The parent name itself — agentbounty.eth — is the manager identity that checks submissions
 // and decides who won. Derived the same way runAgent.js builds subnames, not hardcoded, so it

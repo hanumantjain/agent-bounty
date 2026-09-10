@@ -7,8 +7,8 @@ const TINYBARS_PER_HBAR = 100_000_000
 
 // agentbounty.eth's Hedera account is the plain shared one (see agent/lib/verifier.js) — it isn't
 // resolved through resolveIdentityCreds since it was deliberately decided NOT to be a separate
-// per-identity account. researcher/intern each resolve to their own dedicated account when
-// configured, falling back to the same shared account otherwise.
+// per-identity account. Each worker identity (researcher/intern/director) resolves to its own
+// dedicated account when configured, falling back to the same shared account otherwise.
 async function resolveAccountId(identity) {
   if (identity === 'manager' || identity === 'agentbounty') {
     return process.env.AGENT_HEDERA_ACCOUNT_ID

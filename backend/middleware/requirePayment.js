@@ -2,6 +2,9 @@ const { getFeePayer, verify, settle } = require('../lib/facilitator')
 
 const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
 
+// amountTinybars may be a fixed value or a function of the request (req) => amountTinybars —
+// the latter is how usage-based pricing (e.g. price scales with how much data is requested)
+// gets computed per-call instead of being one flat number for every request.
 function requirePayment({ amountTinybars, resource }) {
   return async function (req, res, next) {
     let feePayer
@@ -11,10 +14,12 @@ function requirePayment({ amountTinybars, resource }) {
       return res.status(502).json({ error: `facilitator unavailable: ${err.message}` })
     }
 
+    const resolvedAmount = typeof amountTinybars === 'function' ? amountTinybars(req) : amountTinybars
+
     const paymentRequirements = {
       scheme: 'exact',
       network: NETWORK,
-      amount: String(amountTinybars),
+      amount: String(resolvedAmount),
       asset: '0.0.0',
       payTo: process.env.HEDERA_PAY_TO_ACCOUNT_ID,
       maxTimeoutSeconds: 120,
