@@ -224,10 +224,6 @@ export default function Bounties() {
               <span className={`badge badge-${bounty.status.toLowerCase()}`}>{bounty.status}</span>
             </div>
 
-            {taskTypes[bounty.taskType]?.description && (
-              <p className="-mt-2 text-xs text-dim">{taskTypes[bounty.taskType].description}</p>
-            )}
-
             <div className="grid grid-cols-2 gap-6 border-t border-border pt-5">
               <div className="flex flex-col gap-1">
                 <span className="label">Reward</span>
