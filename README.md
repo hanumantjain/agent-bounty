@@ -114,7 +114,7 @@ Everything below is checkable independently — nothing here is asserted, it's a
 
 | Component | Where to verify |
 |---|---|
-| Bounty escrow contract | [`0.0.10436913`](https://hashscan.io/testnet/contract/0xa864c2893facdcd54c3fea3bc547da33f5e546d0) on Hedera testnet |
+| Bounty escrow contract | [`0.0.10457136`](https://hashscan.io/testnet/contract/0xe7d0d61d8a38cc12a9936740611029231d027111) on Hedera testnet |
 | Blocky402 facilitator | `https://api.testnet.blocky402.com` (Hedera x402 facilitator) |
 | ENSv2 subname registry (self-deployed) | [`0x7faaa41e9154055e6a988eadc857ccbd41f864c8`](https://sepolia.etherscan.io/address/0x7faaa41e9154055e6a988eadc857ccbd41f864c8) on Sepolia |
 | Live subgraphs queried (same query, 3 protocols) | [Morpho Aave V3](https://thegraph.com/explorer/subgraphs/FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A) · [Aave V3](https://thegraph.com/explorer/subgraphs/JCNWRypm7FYwV8fx5HhzZPSFaMxgkPuw4TnR3Gpi81zk) · [Compound III](https://thegraph.com/explorer/subgraphs/AwoxEZbiWLvv6e3QdvdMZw4WDURdGbvPfHmZRc8Dpfz9) on The Graph Explorer |
