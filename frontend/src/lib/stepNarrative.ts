@@ -10,6 +10,11 @@ function hbar(tinybars: unknown): string {
   return Number.isFinite(n) ? (n / TINYBARS_PER_HBAR).toString() : String(tinybars)
 }
 
+function adc(units: unknown): string {
+  const n = Number(units)
+  return Number.isFinite(n) ? (n / 100).toFixed(2) : String(units)
+}
+
 /**
  * Turns one raw agent/verifier step event into a self-contained, plain-English sentence,
  * using only the fields that step's own payload actually carries — real numbers (prices,
@@ -42,8 +47,12 @@ export function describeStep(step: string, data: Record<string, unknown>): strin
       return `Asking the price for ${data.desiredFirst} records per protocol`
     case 'price':
       return `Price quoted: ${hbar(data.priceTinybars)} HBAR for ${data.desiredFirst} records per protocol`
+    case 'token-balance':
+      return `Checking real ADC balance: ${adc(data.balanceUnits)} ADC held, ${adc(data.priceUnits)} ADC needed`
     case 'allowed':
-      return `Affordable — ${data.priceHbar} HBAR fits within its ${data.limitHbar} HBAR limit, buying ${data.desiredFirst} records per protocol`
+      return data.asset === 'ADC'
+        ? `Paying in ADC — its ${adc(data.balanceUnits)} ADC balance covers the ${adc(data.priceUnits)} ADC price, buying ${data.desiredFirst} records per protocol`
+        : `Affordable — ${data.priceHbar} HBAR fits within its ${data.limitHbar} HBAR limit, buying ${data.desiredFirst} records per protocol`
     case 'skip-blocked':
       return data.reason === 'cannot afford even the minimum sample size'
         ? `Skipped — even the smallest possible sample would cost more than its ${data.limitHbar} HBAR limit allows`
@@ -61,7 +70,8 @@ export function describeStep(step: string, data: Record<string, unknown>): strin
     case 'paid': {
       const items = (data.data as { items?: unknown[] } | undefined)?.items?.length
       const settlement = data.settlement as { transaction?: string; hcsAudit?: { topicId?: string; sequenceNumber?: string } } | undefined
-      const base = `Paid and received ${items ?? '—'} records from The Graph (tx ${short(settlement?.transaction)})`
+      const assetLabel = data.asset === 'ADC' ? ' in ADC' : ''
+      const base = `Paid${assetLabel} and received ${items ?? '—'} records from The Graph (tx ${short(settlement?.transaction)})`
       return settlement?.hcsAudit
         ? `${base} — logged to HCS topic ${settlement.hcsAudit.topicId}, sequence ${settlement.hcsAudit.sequenceNumber}`
         : base

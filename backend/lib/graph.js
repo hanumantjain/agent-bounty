@@ -86,4 +86,26 @@ function priceForFirst(first) {
   return PRICING.pricePerItemTinybars * first * getProtocols().length
 }
 
-module.exports = { fetchRecentEntity, ALLOWED_ENTITIES, getProtocols, PRICING, clampFirst, priceForFirst }
+// A second, independent settlement asset for the same endpoint — a real HTS fungible token
+// (see agent/scripts/setupDataCreditToken.js), priced entirely separately from HBAR since a
+// token-denominated price has no reason to track tinybar scale.
+const TOKEN_PRICING = {
+  tokenId: process.env.DATA_CREDIT_TOKEN_ID || null,
+  tokenSymbol: 'ADC',
+  pricePerItemUnits: Number(process.env.DATA_CREDIT_PRICE_PER_ITEM || '100'),
+}
+
+function priceForFirstInToken(first) {
+  return TOKEN_PRICING.pricePerItemUnits * first * getProtocols().length
+}
+
+module.exports = {
+  fetchRecentEntity,
+  ALLOWED_ENTITIES,
+  getProtocols,
+  PRICING,
+  clampFirst,
+  priceForFirst,
+  TOKEN_PRICING,
+  priceForFirstInToken,
+}

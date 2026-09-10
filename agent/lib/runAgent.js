@@ -1,6 +1,6 @@
 import { createPublicClient, http as viemHttp, toHex } from 'viem'
 import { sepolia } from 'viem/chains'
-import { buildAndSignPayment } from './hederaPay.js'
+import { buildAndSignPayment, buildAndSignTokenPayment } from './hederaPay.js'
 import { resolveSpendingLimit } from './ens.js'
 import { checkAffordability } from './decide.js'
 import { analyzeAmounts } from './analyze.js'
@@ -20,11 +20,22 @@ const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
 const PARENT_LABEL = process.env.ENS_PARENT_LABEL
 const SPENDING_LIMIT_KEY = process.env.ENS_SPENDING_LIMIT_KEY || 'agent.spending.limit'
 const BOUNTY_CONTRACT_ADDRESS = process.env.BOUNTY_CONTRACT_ADDRESS
+const MIRROR_NODE_URL = process.env.HEDERA_MIRROR_NODE_URL || 'https://testnet.mirrornode.hedera.com'
 const TINYBARS_PER_HBAR = 100_000_000
 // A demo-sensible ceiling so a very high spending limit doesn't always just buy the max sample
 // size — the interesting signal is "how much more can a bigger budget afford," not "everyone
 // maxes out."
 const FIRST_DEMO_CAP = 20
+
+// A real balance check, not a declared policy — the trust model for the second settlement
+// asset is deliberately different from the ENS-declared HBAR spending limit.
+async function getTokenBalanceUnits(accountId, tokenId) {
+  const res = await fetch(`${MIRROR_NODE_URL}/api/v1/accounts/${accountId}/tokens?token.id=${tokenId}`)
+  if (!res.ok) return 0
+  const body = await res.json()
+  const entry = body.tokens?.find((t) => t.token_id === tokenId)
+  return entry ? Number(entry.balance) : 0
+}
 
 export async function runAgent({ identity, taskId: targetTaskId, onStep = () => {} }) {
   const subname = `${identity}.${PARENT_LABEL}.eth`
@@ -99,14 +110,39 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     const probe = await fetch(`${BACKEND_URL}${resourcePath}`)
     if (probe.status !== 402) throw new Error(`expected 402, got ${probe.status}: ${await probe.text()}`)
     const { accepts } = await probe.json()
-    const requirements = accepts.find((r) => r.network === NETWORK)
-    if (!requirements) throw new Error(`no payment option for network ${NETWORK}`)
-    onStep('price', { taskId, priceTinybars: requirements.amount, desiredFirst })
+    const hbarRequirements = accepts.find((r) => r.network === NETWORK && r.asset === '0.0.0')
+    if (!hbarRequirements) throw new Error(`no HBAR payment option for network ${NETWORK}`)
+    onStep('price', { taskId, priceTinybars: hbarRequirements.amount, desiredFirst })
 
-    // Safety net: the server-quoted price should always match what we computed above, but
-    // check for real rather than assume — the affordability decision that actually gates the
-    // claim is this one, not the estimate.
-    const decision = checkAffordability({ priceTinybars: requirements.amount, limitHbar })
+    // Decide which real settlement asset to use. The HTS data-credit token is preferred when
+    // this identity's own current balance genuinely covers it — checked live via the mirror
+    // node, not a declared policy — since that's a different, equally real trust model from the
+    // ENS-declared HBAR spending limit. Falls back to the existing HBAR path otherwise.
+    let requirements = hbarRequirements
+    let asset = 'HBAR'
+    let decision
+    const dataCreditToken = pricing.dataCreditToken
+    if (dataCreditToken) {
+      const tokenRequirements = accepts.find((r) => r.network === NETWORK && r.asset === dataCreditToken.tokenId)
+      if (tokenRequirements) {
+        const balanceUnits = await getTokenBalanceUnits(creds.accountId, dataCreditToken.tokenId)
+        onStep('token-balance', {
+          taskId,
+          tokenId: dataCreditToken.tokenId,
+          balanceUnits,
+          priceUnits: Number(tokenRequirements.amount),
+        })
+        if (balanceUnits >= Number(tokenRequirements.amount)) {
+          requirements = tokenRequirements
+          asset = 'ADC'
+          decision = { allowed: true, asset, balanceUnits, priceUnits: Number(tokenRequirements.amount) }
+        }
+      }
+    }
+    if (!decision) {
+      const hbarDecision = checkAffordability({ priceTinybars: hbarRequirements.amount, limitHbar })
+      decision = { ...hbarDecision, asset }
+    }
     if (!decision.allowed) {
       onStep('skip-blocked', { taskId, ...decision })
       continue
@@ -132,19 +168,32 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     }
     onStep('claimed', { taskId, claimTxHash })
 
-    const transaction = await buildAndSignPayment(
-      {
-        amountTinybars: Number(requirements.amount),
-        payToAccountId: requirements.payTo,
-        feePayerAccountId: requirements.extra.feePayer,
-        network: process.env.HEDERA_NETWORK || 'testnet',
-      },
-      {
-        accountId: creds.accountId,
-        privateKey: process.env[creds.privateKeyEnvVar],
-        keyType: creds.keyType,
-      },
-    )
+    const payerCreds = {
+      accountId: creds.accountId,
+      privateKey: process.env[creds.privateKeyEnvVar],
+      keyType: creds.keyType,
+    }
+    const transaction =
+      asset === 'ADC'
+        ? await buildAndSignTokenPayment(
+            {
+              tokenId: requirements.asset,
+              amountUnits: Number(requirements.amount),
+              payToAccountId: requirements.payTo,
+              feePayerAccountId: requirements.extra.feePayer,
+              network: process.env.HEDERA_NETWORK || 'testnet',
+            },
+            payerCreds,
+          )
+        : await buildAndSignPayment(
+            {
+              amountTinybars: Number(requirements.amount),
+              payToAccountId: requirements.payTo,
+              feePayerAccountId: requirements.extra.feePayer,
+              network: process.env.HEDERA_NETWORK || 'testnet',
+            },
+            payerCreds,
+          )
 
     const paymentPayload = {
       x402Version: 2,
@@ -168,7 +217,7 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     const settlement = settlementHeader
       ? JSON.parse(Buffer.from(settlementHeader, 'base64').toString('utf8'))
       : null
-    onStep('paid', { taskId, settlement, data: body })
+    onStep('paid', { taskId, asset, settlement, data: body })
 
     // firstPerProtocol travels with the answer so the independent verifier can re-check
     // against the exact same sample size — otherwise a budget-constrained agent that
@@ -177,7 +226,12 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     // hcsAudit travels with the answer too — since it's stored permanently on-chain, this
     // makes the payment's independently-checkable HCS audit record recoverable forever from
     // the bounty itself, not just visible in the live step log at the moment it happened.
-    const analysis = { ...analyzeAmounts(body.items), firstPerProtocol: desiredFirst, hcsAudit: settlement?.hcsAudit ?? null }
+    const analysis = {
+      ...analyzeAmounts(body.items),
+      firstPerProtocol: desiredFirst,
+      settlementAsset: asset,
+      hcsAudit: settlement?.hcsAudit ?? null,
+    }
     onStep('analysis', { taskId, ...analysis })
 
     const answerHex = toHex(JSON.stringify(analysis))

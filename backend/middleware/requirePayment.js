@@ -2,10 +2,10 @@ const { getFeePayer, verify, settle } = require('../lib/facilitator')
 
 const NETWORK = `hedera:${process.env.HEDERA_NETWORK || 'testnet'}`
 
-// amountTinybars may be a fixed value or a function of the request (req) => amountTinybars —
-// the latter is how usage-based pricing (e.g. price scales with how much data is requested)
-// gets computed per-call instead of being one flat number for every request.
-function requirePayment({ amountTinybars, resource }) {
+// buildAccepts(req) => [{ asset, amount }, ...] — one or more real settlement options for this
+// specific request. Usually just HBAR (asset '0.0.0'), but a resource can offer more than one
+// asset (e.g. a second HTS token) so the caller genuinely chooses how to pay, not just whether.
+function requirePayment({ buildAccepts, resource }) {
   return async function (req, res, next) {
     let feePayer
     try {
@@ -14,22 +14,21 @@ function requirePayment({ amountTinybars, resource }) {
       return res.status(502).json({ error: `facilitator unavailable: ${err.message}` })
     }
 
-    const resolvedAmount = typeof amountTinybars === 'function' ? amountTinybars(req) : amountTinybars
-
-    const paymentRequirements = {
+    const options = buildAccepts(req)
+    const acceptsList = options.map(({ asset, amount }) => ({
       scheme: 'exact',
       network: NETWORK,
-      amount: String(resolvedAmount),
-      asset: '0.0.0',
+      amount: String(amount),
+      asset,
       payTo: process.env.HEDERA_PAY_TO_ACCOUNT_ID,
       maxTimeoutSeconds: 120,
       resource,
       extra: { feePayer },
-    }
+    }))
 
     const paymentHeader = req.get('X-PAYMENT')
     if (!paymentHeader) {
-      return res.status(402).json({ x402Version: 2, accepts: [paymentRequirements] })
+      return res.status(402).json({ x402Version: 2, accepts: acceptsList })
     }
 
     let paymentPayload
@@ -37,6 +36,15 @@ function requirePayment({ amountTinybars, resource }) {
       paymentPayload = JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf8'))
     } catch {
       return res.status(400).json({ error: 'invalid X-PAYMENT header' })
+    }
+
+    // Which asset the caller actually chose to pay with — but the amount/payTo/etc used to
+    // verify and settle always comes from OUR own recomputed requirements for that asset, never
+    // trusted from the client's payload.
+    const chosenAsset = paymentPayload.accepted?.asset
+    const paymentRequirements = acceptsList.find((r) => r.asset === chosenAsset)
+    if (!paymentRequirements) {
+      return res.status(400).json({ x402Version: 2, error: `unsupported asset: ${chosenAsset}`, accepts: acceptsList })
     }
 
     try {
@@ -50,7 +58,8 @@ function requirePayment({ amountTinybars, resource }) {
         const { submitPaymentAudit } = await import('../../agent/lib/hcsAudit.js')
         settlement.hcsAudit = await submitPaymentAudit({
           resource,
-          amountTinybars: resolvedAmount,
+          asset: paymentRequirements.asset,
+          amount: paymentRequirements.amount,
           payTo: paymentRequirements.payTo,
           payer: settlement.payer,
           settlementTransaction: settlement.transaction,
@@ -64,7 +73,7 @@ function requirePayment({ amountTinybars, resource }) {
       req.payment = settlement
       next()
     } catch (err) {
-      res.status(402).json({ x402Version: 2, error: err.message, accepts: [paymentRequirements] })
+      res.status(402).json({ x402Version: 2, error: err.message, accepts: acceptsList })
     }
   }
 }

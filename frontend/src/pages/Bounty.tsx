@@ -16,6 +16,7 @@ interface BountyDetails {
     verdict: string
     threshold: number
     largest: unknown
+    settlementAsset: string | null
     hcsAudit: { topicId: string; sequenceNumber: string; transactionId: string } | null
   } | null
   contractAddress: string
@@ -262,6 +263,11 @@ export default function Bounty() {
           {bounty.answer && (
             <>
               <h3>Submitted Answer</h3>
+              {bounty.answer.settlementAsset && (
+                <p className="mb-1.5 text-xs text-dim">
+                  Data settled in <span className="font-semibold text-heading">{bounty.answer.settlementAsset}</span>
+                </p>
+              )}
               <pre className="overflow-x-auto rounded-md bg-inset px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-all text-muted">
                 {JSON.stringify(bounty.answer, null, 2)}
               </pre>

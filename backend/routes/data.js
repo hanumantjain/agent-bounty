@@ -1,6 +1,15 @@
 const express = require('express')
 const { requirePayment } = require('../middleware/requirePayment')
-const { fetchRecentEntity, ALLOWED_ENTITIES, getProtocols, PRICING, clampFirst, priceForFirst } = require('../lib/graph')
+const {
+  fetchRecentEntity,
+  ALLOWED_ENTITIES,
+  getProtocols,
+  PRICING,
+  clampFirst,
+  priceForFirst,
+  TOKEN_PRICING,
+  priceForFirstInToken,
+} = require('../lib/graph')
 
 const router = express.Router()
 
@@ -15,12 +24,25 @@ router.get('/pricing', (req, res) => {
     protocols: protocols.map((p) => p.name),
     minFirst: PRICING.minFirst,
     maxFirst: PRICING.maxFirst,
+    dataCreditToken: TOKEN_PRICING.tokenId
+      ? { tokenId: TOKEN_PRICING.tokenId, symbol: TOKEN_PRICING.tokenSymbol, pricePerItemUnits: TOKEN_PRICING.pricePerItemUnits }
+      : null,
   })
 })
 
 router.get(
   '/recent-activity',
-  requirePayment({ amountTinybars: (req) => priceForFirst(clampFirst(req.query.first)), resource: RESOURCE_PATH }),
+  requirePayment({
+    resource: RESOURCE_PATH,
+    buildAccepts: (req) => {
+      const first = clampFirst(req.query.first)
+      const options = [{ asset: '0.0.0', amount: priceForFirst(first) }]
+      if (TOKEN_PRICING.tokenId) {
+        options.push({ asset: TOKEN_PRICING.tokenId, amount: priceForFirstInToken(first) })
+      }
+      return options
+    },
+  }),
   async (req, res) => {
     const entity = req.query.entity || 'withdraws'
     if (!ALLOWED_ENTITIES.has(entity)) {
