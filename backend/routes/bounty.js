@@ -18,10 +18,11 @@ function decodeAnswer(answerHex) {
 
 const STATUS_NAMES = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
 
-function serializeBounty(taskId, bounty, agentLabel) {
+function serializeBounty(taskId, bounty, agentLabel, creatorLabel) {
   return {
     taskId,
     creator: bounty.creator,
+    creatorLabel: creatorLabel ?? null,
     rewardTinybars: bounty.reward.toString(),
     description: bounty.description,
     taskType: bounty.taskType,
@@ -44,7 +45,7 @@ router.get('/list', async (req, res) => {
     const all = await discoverAllBounties(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS)
     const bounties = all
       .map(({ taskId, bounty }) => ({
-        ...serializeBounty(taskId, bounty, resolveAgentLabel(bounty.agent)),
+        ...serializeBounty(taskId, bounty, resolveAgentLabel(bounty.agent), resolveAgentLabel(bounty.creator)),
         dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
         contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
       }))
@@ -62,7 +63,7 @@ router.get('/current', async (req, res) => {
     const found = await discoverLatestBounty(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS)
     if (!found) return res.status(404).json({ error: 'no bounty found' })
     res.json({
-      ...serializeBounty(found.taskId, found.bounty, resolveAgentLabel(found.bounty.agent)),
+      ...serializeBounty(found.taskId, found.bounty, resolveAgentLabel(found.bounty.agent), resolveAgentLabel(found.bounty.creator)),
       dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })
@@ -109,7 +110,7 @@ router.get('/:taskId', async (req, res) => {
     const bounty = await getBountyWithOriginalReward(publicClient, process.env.BOUNTY_CONTRACT_ADDRESS, req.params.taskId)
     if (bounty.status === 0) return res.status(404).json({ error: 'bounty not found' })
     res.json({
-      ...serializeBounty(req.params.taskId, bounty, resolveAgentLabel(bounty.agent)),
+      ...serializeBounty(req.params.taskId, bounty, resolveAgentLabel(bounty.agent), resolveAgentLabel(bounty.creator)),
       dataPriceTinybars: BASELINE_DATA_PRICE_TINYBARS,
       contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
     })

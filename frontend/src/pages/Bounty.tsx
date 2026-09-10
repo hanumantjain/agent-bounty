@@ -5,6 +5,7 @@ import { describeStep } from '../lib/stepNarrative'
 interface BountyDetails {
   taskId: string
   creator: string
+  creatorLabel: string | null
   rewardTinybars: string
   description: string
   taskType: string
@@ -238,7 +239,9 @@ export default function Bounty() {
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
             <span className="label">Creator</span>
-            <span className="font-mono text-xs">{bounty.creator}</span>
+            <span className="text-sm text-heading" title={bounty.creator}>
+              {bounty.creatorLabel ?? bounty.creator}
+            </span>
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
             <span className="label">Reward</span>
@@ -246,15 +249,8 @@ export default function Bounty() {
           </div>
           <div className="flex items-baseline justify-between">
             <span className="label">Agent (claimant)</span>
-            <span className="font-mono text-xs">
-              {bounty.agent ? (
-                <>
-                  {bounty.agentLabel && <span className="mr-1.5 font-sans font-semibold text-heading">{bounty.agentLabel}</span>}
-                  {bounty.agent}
-                </>
-              ) : (
-                '—'
-              )}
+            <span className="text-sm text-heading" title={bounty.agent ?? undefined}>
+              {bounty.agent ? (bounty.agentLabel ?? bounty.agent) : '—'}
             </span>
           </div>
 

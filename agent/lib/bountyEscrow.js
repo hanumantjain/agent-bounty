@@ -198,23 +198,26 @@ const KNOWN_IDENTITIES = ['researcher', 'intern', 'director']
 let identityAddressMap = null
 function buildIdentityAddressMap() {
   const map = new Map()
+  const parentLabel = process.env.ENS_PARENT_LABEL
   for (const label of KNOWN_IDENTITIES) {
     const creds = resolveIdentityCreds(label)
     const rawKey = process.env[creds.privateKeyEnvVar]
     if (!rawKey) continue
     const privateKey = rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`
-    map.set(privateKeyToAccount(privateKey).address.toLowerCase(), label)
+    const ensName = parentLabel ? `${label}.${parentLabel}.eth` : label
+    map.set(privateKeyToAccount(privateKey).address.toLowerCase(), ensName)
   }
   const managerKey = process.env.AGENT_HEDERA_PRIVATE_KEY
   if (managerKey) {
     const privateKey = managerKey.startsWith('0x') ? managerKey : `0x${managerKey}`
-    map.set(privateKeyToAccount(privateKey).address.toLowerCase(), 'agentbounty.eth')
+    map.set(privateKeyToAccount(privateKey).address.toLowerCase(), parentLabel ? `${parentLabel}.eth` : 'agentbounty.eth')
   }
   return map
 }
 
-/// Maps an on-chain agent/verifier address back to its identity label (researcher/intern/
-/// director/agentbounty.eth), or null if the address doesn't match any configured identity.
+/// Maps an on-chain agent/verifier/creator address back to its full ENS name (e.g.
+/// "researcher.agentbounty.eth", "agentbounty.eth"), or null if the address doesn't match any
+/// configured identity — the contract itself only ever sees addresses, never names.
 export function resolveAgentLabel(address) {
   if (!address) return null
   if (!identityAddressMap) identityAddressMap = buildIdentityAddressMap()
