@@ -127,17 +127,21 @@ export default function Agent() {
 
           <div className="flex items-baseline justify-between border-b border-border pb-3.5">
             <span className="label">Wallet balance</span>
-            <div className="text-right">
+            <div className="flex items-baseline gap-4">
               <span className="text-xl font-bold text-heading">
                 {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
                   ? `${wallet.balanceHbar.toFixed(2)} HBAR`
                   : '—'}
               </span>
               {wallet?.adcBalance !== null && wallet?.adcBalance !== undefined && (
-                <div className="mt-0.5 text-xs text-dim">{wallet.adcBalance.toFixed(2)} ADC</div>
+                <span className="text-xl font-bold text-heading">{wallet.adcBalance.toFixed(2)} ADC</span>
               )}
             </div>
           </div>
+          <p className="text-xs text-dim">
+            Data payments settle in whichever asset this identity can actually afford — ADC when its balance covers
+            the price, HBAR otherwise.
+          </p>
 
           <div>
             <div className="mb-2 flex items-baseline justify-between">
