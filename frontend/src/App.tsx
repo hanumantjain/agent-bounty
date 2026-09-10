@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import Bounties from './pages/Bounties'
 import Agent from './pages/Agent'
@@ -14,6 +14,14 @@ const NAV_ITEMS = [
 
 function App() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [managerBalance, setManagerBalance] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('/api/wallet/manager')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setManagerBalance(data?.balanceHbar ?? null))
+      .catch(() => setManagerBalance(null))
+  }, [])
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
@@ -70,6 +78,9 @@ function App() {
             <div className="rounded-xl border border-border-soft bg-inset p-3 shadow-sm shadow-black/20">
               <div className="text-[10px] tracking-wide text-dim uppercase">Bounty Manager</div>
               <div className="mt-0.5 truncate font-mono text-[13px] font-medium text-heading">agentbounty.eth</div>
+              <div className="mt-1.5 text-base font-bold text-heading">
+                {managerBalance !== null ? `${managerBalance.toFixed(2)} HBAR` : '—'}
+              </div>
               <div className="mt-1 text-[11px] text-dim">Checks submissions, releases rewards</div>
             </div>
           </div>

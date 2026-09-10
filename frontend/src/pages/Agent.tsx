@@ -6,13 +6,33 @@ interface Identity {
   spendingLimitHbar: number
 }
 
+interface WalletTransaction {
+  id: string
+  type: string
+  result: string
+  timestampMs: number
+  netHbar: number
+}
+
+interface Wallet {
+  accountId: string
+  balanceHbar: number | null
+  transactions: WalletTransaction[]
+}
+
 const IDENTITIES = ['researcher', 'intern']
+
+const TX_TYPE_LABELS: Record<string, string> = {
+  CRYPTOTRANSFER: 'Payment',
+  ETHEREUMTRANSACTION: 'Contract call',
+}
 
 export default function Agent() {
   const { lastPayment } = useAgentStatus()
   const [selected, setSelected] = useState('researcher')
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [wallet, setWallet] = useState<Wallet | null>(null)
 
   useEffect(() => {
     setIdentity(null)
@@ -21,6 +41,14 @@ export default function Agent() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed to resolve identity'))))
       .then(setIdentity)
       .catch((e) => setError(e.message))
+  }, [selected])
+
+  useEffect(() => {
+    setWallet(null)
+    fetch(`/api/wallet/${selected}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setWallet)
+      .catch(() => setWallet(null))
   }, [selected])
 
   const spentForThisIdentity = lastPayment?.identity === selected ? lastPayment : null
@@ -96,6 +124,15 @@ export default function Agent() {
             </div>
           </div>
 
+          <div className="flex items-baseline justify-between border-b border-border pb-3.5">
+            <span className="label">Wallet balance</span>
+            <span className="text-xl font-bold text-heading">
+              {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
+                ? `${wallet.balanceHbar.toFixed(2)} HBAR`
+                : '—'}
+            </span>
+          </div>
+
           <div>
             <div className="mb-2 flex items-baseline justify-between">
               <span className="label">Maximum spend</span>
@@ -119,6 +156,49 @@ export default function Agent() {
             Enhanced Access Control role on the <code>agent.spending.limit</code> text record — not
             a hardcoded value.
           </p>
+        </div>
+      )}
+
+      {wallet && (
+        <div className="card mt-4">
+          <div className="flex items-baseline justify-between">
+            <span className="label">Recent transactions</span>
+            <span className="font-mono text-xs text-dim">{wallet.accountId}</span>
+          </div>
+
+          {wallet.transactions.length === 0 && <p className="text-sm text-dim">No transactions yet.</p>}
+
+          <div className="flex flex-col">
+            {wallet.transactions.map((tx) => (
+              <a
+                key={tx.id}
+                href={`https://hashscan.io/testnet/transaction/${tx.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between gap-3 border-b border-border-soft py-2.5 text-[13px] no-underline last:border-0 hover:bg-white/[0.03]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+                      tx.result === 'SUCCESS'
+                        ? 'border-live/30 bg-live-bg text-live'
+                        : 'border-danger/30 bg-danger-bg text-danger'
+                    }`}
+                  >
+                    {tx.netHbar > 0 ? '↓' : tx.netHbar < 0 ? '↑' : '•'}
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-heading">{TX_TYPE_LABELS[tx.type] ?? tx.type}</span>
+                    <span className="text-[11px] text-dim">{new Date(tx.timestampMs).toLocaleString()}</span>
+                  </div>
+                </div>
+                <span className={`font-mono text-sm font-semibold ${tx.netHbar > 0 ? 'text-live' : tx.netHbar < 0 ? 'text-heading' : 'text-dim'}`}>
+                  {tx.netHbar > 0 ? '+' : ''}
+                  {tx.netHbar.toFixed(4)} HBAR
+                </span>
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </div>
