@@ -26,6 +26,11 @@ interface TaskTypeDef {
   description: string
 }
 
+interface Suggestion {
+  taskType: string
+  description: string
+}
+
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 const adc = (units: number) => (units / 100).toFixed(2)
@@ -51,6 +56,10 @@ export default function Bounties() {
   const [taskType, setTaskType] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null)
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/bounty/task-types')
@@ -81,6 +90,26 @@ export default function Bounties() {
       .then(setIdentity)
       .catch(() => setIdentity(null))
   }, [activeIdentity])
+
+  const getSuggestions = async () => {
+    setSuggestLoading(true)
+    setSuggestError(null)
+    try {
+      const res = await fetch('/api/bounty/suggestions')
+      if (!res.ok) throw new Error((await res.json()).error ?? 'failed to get suggestions')
+      const { suggestions: result } = await res.json()
+      setSuggestions(result)
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSuggestLoading(false)
+    }
+  }
+
+  const applySuggestion = (s: Suggestion) => {
+    setTaskType(s.taskType)
+    setDescription(s.description)
+  }
 
   const submitBounty = async () => {
     setCreating(true)
@@ -136,6 +165,31 @@ export default function Bounties() {
       {showForm && (
         <div className="card mb-6">
           <span className="label">Post a bounty</span>
+
+          <div className="flex flex-col gap-2">
+            <button className="btn-ghost w-fit" onClick={getSuggestions} disabled={suggestLoading}>
+              {suggestLoading ? 'Thinking…' : '💡 Get suggestions from live data'}
+            </button>
+            {suggestError && <p className="text-xs text-danger">{suggestError}</p>}
+            {suggestions && suggestions.length === 0 && !suggestError && (
+              <p className="text-xs text-dim">No notable activity to suggest from right now — try again shortly.</p>
+            )}
+            {suggestions && suggestions.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => applySuggestion(s)}
+                    className="rounded-lg border border-border-soft bg-inset p-3 text-left text-sm text-muted transition-colors hover:border-border hover:bg-white/[0.03]"
+                  >
+                    <span className="tag mr-2">{taskTypes[s.taskType]?.label ?? s.taskType}</span>
+                    {s.description}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <textarea
             className="w-full resize-none rounded-lg border border-border bg-inset p-3 text-sm text-heading placeholder:text-dim"
             rows={2}

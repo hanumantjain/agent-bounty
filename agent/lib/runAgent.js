@@ -3,7 +3,7 @@ import { sepolia } from 'viem/chains'
 import { buildAndSignPayment, buildAndSignTokenPayment } from './hederaPay.js'
 import { resolveSpendingLimit } from './ens.js'
 import { checkAffordability } from './decide.js'
-import { analyzeAmounts } from './analyze.js'
+import { judgeAnomaly } from './analyze.js'
 import { getTaskDefinition } from './tasks.js'
 import {
   makeHederaEvmClients,
@@ -227,7 +227,7 @@ export async function runAgent({ identity, taskId: targetTaskId, onStep = () => 
     // makes the payment's independently-checkable HCS audit record recoverable forever from
     // the bounty itself, not just visible in the live step log at the moment it happened.
     const analysis = {
-      ...analyzeAmounts(body.items),
+      ...(await judgeAnomaly(body.items, { entityLabel: task.entity })),
       firstPerProtocol: desiredFirst,
       settlementAsset: asset,
       hcsAudit: settlement?.hcsAudit ?? null,

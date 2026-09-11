@@ -1,5 +1,6 @@
 const express = require('express')
 const { PRICING, priceForFirst, TOKEN_PRICING, priceForFirstInToken } = require('../lib/graph')
+const { getSuggestions } = require('../lib/aiSuggest')
 
 const router = express.Router()
 
@@ -76,6 +77,17 @@ router.get('/current', async (req, res) => {
   }
 })
 
+// Registered before the /:taskId catch-all below — otherwise "suggestions" would be swallowed
+// as a literal taskId value (same ordering caution as /list and /current above).
+router.get('/suggestions', async (req, res) => {
+  try {
+    const suggestions = await getSuggestions()
+    res.json({ suggestions })
+  } catch (err) {
+    res.status(502).json({ error: err.message })
+  }
+})
+
 router.post('/create', async (req, res) => {
   try {
     const description = String(req.body?.description ?? '').trim()
@@ -128,6 +140,17 @@ router.get('/:taskId/check', async (req, res) => {
   try {
     const { checkAnswer } = await import('../../agent/lib/verifier.js')
     const result = await checkAnswer(req.params.taskId)
+
+    // Best-effort plain-English note for the human reviewer — the deterministic result above
+    // is already the real verification; a Claude API hiccup should never hide it.
+    try {
+      const { explainAnswer } = await import('../../agent/lib/aiExplain.js')
+      const { explanation } = await explainAnswer(req.params.taskId)
+      result.explanation = explanation
+    } catch (err) {
+      console.error('AI explanation failed (non-fatal):', err.message)
+    }
+
     res.json(result)
   } catch (err) {
     res.status(502).json({ error: err.message })

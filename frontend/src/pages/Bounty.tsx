@@ -32,6 +32,7 @@ interface CheckResult {
   matches: boolean
   submitted: { verdict: string; largest: unknown }
   freshAnalysis: { verdict: string; largest: unknown }
+  explanation?: string
 }
 
 interface RaceLogEntry {
@@ -515,6 +516,13 @@ export default function Bounty() {
                       <div className="text-sm text-heading">{checkResult.freshAnalysis.verdict}</div>
                     </div>
                   </div>
+
+                  {checkResult.explanation && (
+                    <div className="rounded-lg border border-border-soft bg-inset p-3">
+                      <div className="label mb-1">AI context (commentary only, not part of the verification above)</div>
+                      <p className="text-sm text-muted">{checkResult.explanation}</p>
+                    </div>
+                  )}
 
                   <div className="flex gap-2">
                     <button className="btn-primary" onClick={() => decide(true)} disabled={deciding}>

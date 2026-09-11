@@ -1,5 +1,5 @@
 import { fetchRecentEntityIndependently } from './verifyGraph.js'
-import { analyzeAmounts } from './analyze.js'
+import { judgeAnomaly } from './analyze.js'
 import { getTaskDefinition } from './tasks.js'
 import { makeHederaEvmClients, getBounty, writeAndConfirm, BOUNTY_ESCROW_ABI, BountyStatus } from './bountyEscrow.js'
 
@@ -30,7 +30,7 @@ export async function checkAnswer(taskId) {
   // outside a window it never had the budget to see in the first place.
   const first = submitted.firstPerProtocol ?? 10
   const freshItems = await fetchRecentEntityIndependently(task.entity, { first })
-  const freshAnalysis = analyzeAmounts(freshItems)
+  const freshAnalysis = await judgeAnomaly(freshItems, { entityLabel: task.entity })
 
   const matches =
     submitted.verdict === freshAnalysis.verdict && submitted.largest?.hash === freshAnalysis.largest?.hash
