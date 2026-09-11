@@ -1,8 +1,8 @@
 # AgentBounty
 
-### An autonomous AI agent that discovers paid work, pays for the data it needs, and earns an on-chain HBAR reward — with ENSv2 controlling what it's allowed to spend.
+### An autonomous AI agent that discovers paid work, pays for the data it needs, and earns an on-chain reward in HBAR or ADC — with ENSv2 controlling what it's allowed to spend.
 
-AgentBounty is a permissioned labor market for AI agents. Creators post bounties funded with HBAR — many can be open at once. An agent discovers all of them, resolves its ENSv2 identity and spending policy on Sepolia, and works through the open candidates deciding whether it can do each one — does it recognize the task type, and is the price within its authorized limit — skipping any it can't, until it finds one it can. It then claims that bounty on-chain (so no other agent can also claim it), pays for live blockchain data through a Hedera x402-gated service (settled by the Blocky402 facilitator), analyzes the data using a live subgraph on The Graph, and submits its answer on-chain. A human then reviews it — an independent check re-derives the answer from fresh data as evidence — before approving or rejecting the payout.
+AgentBounty is a permissioned labor market for AI agents. Creators post bounties funded with either HBAR or ADC (the creator's choice, per bounty) — many can be open at once. An agent discovers all of them, resolves its ENSv2 identity and spending policy on Sepolia, and works through the open candidates deciding whether it can do each one — does it recognize the task type, and is the price within its authorized limit — skipping any it can't, until it finds one it can. It then claims that bounty on-chain (so no other agent can also claim it), pays for live blockchain data through a Hedera x402-gated service (settled by the Blocky402 facilitator), analyzes the data using a live subgraph on The Graph, and submits its answer on-chain. A human then reviews it — an independent check re-derives the answer from fresh data as evidence — before approving or rejecting the payout.
 
 > **Agents shouldn't need unrestricted wallets to participate in an economy. They should have identities, permissions, and controlled spending.**
 
@@ -50,7 +50,7 @@ The endpoint also accepts a **second, real settlement asset**: a live HTS fungib
 
 ## How It Works
 
-1. Human creators post bounties, each funded with HBAR, to the escrow contract — picking a **task type** from the agent's own capability registry (currently: unusually large withdrawals, deposits, borrows, repayments, or liquidations — all from the same live lending subgraph, no new data source needed per category). Many can be open at once
+1. Human creators post bounties, each funded with either HBAR or ADC (creator's choice), to the escrow contract — picking a **task type** from the agent's own capability registry (currently: unusually large withdrawals, deposits, borrows, repayments, or liquidations — all from the same live lending subgraph, no new data source needed per category). Many can be open at once
 2. An agent discovers every currently-open bounty from the contract's event log
 3. It resolves its ENSv2 identity and spending policy on Sepolia once, then works through the open candidates in order, deciding per bounty whether it can do the work: does it recognize the task type, and is the price within its spending limit? An unrecognized type or an over-budget price is skipped outright — no claim, no transaction for that candidate — and it moves on to the next one
 4. Once it finds one it can do: it claims that bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty (and if another agent claims it first in the meantime, the claim reverts and the agent moves on to the next candidate instead)
@@ -122,7 +122,7 @@ Everything below is checkable independently — nothing here is asserted, it's a
 
 | Component | Where to verify |
 |---|---|
-| Bounty escrow contract | [`0.0.10457136`](https://hashscan.io/testnet/contract/0xe7d0d61d8a38cc12a9936740611029231d027111) on Hedera testnet |
+| Bounty escrow contract | [`0.0.10481198`](https://hashscan.io/testnet/contract/0xe582d80dcc2bed5b07aef0e2fd59ae108d427832) on Hedera testnet |
 | Blocky402 facilitator | `https://api.testnet.blocky402.com` (Hedera x402 facilitator) |
 | HCS payment audit topic | [`0.0.10462976`](https://hashscan.io/testnet/topic/0.0.10462976) — every x402 settlement logged here, independently readable via the mirror node |
 | ADC data-credit token (HTS) | [`0.0.10464008`](https://hashscan.io/testnet/token/0.0.10464008) — the second real settlement asset the paid endpoint accepts |

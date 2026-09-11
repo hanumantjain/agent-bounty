@@ -4,6 +4,9 @@ import Bounties from './pages/Bounties'
 import Agent from './pages/Agent'
 import Execution from './pages/Execution'
 import Bounty from './pages/Bounty'
+import Term from './components/Term'
+import AssetToggle from './components/AssetToggle'
+import { useDisplayAsset } from './lib/displayAsset'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Bounty Marketplace', icon: '◆', end: true },
@@ -14,13 +17,21 @@ const NAV_ITEMS = [
 
 function App() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [managerBalance, setManagerBalance] = useState<number | null>(null)
+  const [managerBalanceHbar, setManagerBalanceHbar] = useState<number | null>(null)
+  const [managerBalanceAdc, setManagerBalanceAdc] = useState<number | null>(null)
+  const { displayAsset } = useDisplayAsset()
 
   useEffect(() => {
     fetch('/api/wallet/manager')
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setManagerBalance(data?.balanceHbar ?? null))
-      .catch(() => setManagerBalance(null))
+      .then((data) => {
+        setManagerBalanceHbar(data?.balanceHbar ?? null)
+        setManagerBalanceAdc(data?.adcBalance ?? null)
+      })
+      .catch(() => {
+        setManagerBalanceHbar(null)
+        setManagerBalanceAdc(null)
+      })
   }, [])
 
   return (
@@ -70,16 +81,21 @@ function App() {
           </nav>
 
           <div className="mt-auto flex shrink-0 flex-col gap-3 border-t border-border pt-4">
+            <AssetToggle />
             <div className="flex items-center gap-2 px-1 text-[11px] text-dim">
-              <span className="h-1.5 w-1.5 rounded-full bg-dim" /> ENSv2
-              <span className="h-1.5 w-1.5 rounded-full bg-dim" /> The Graph
-              <span className="h-1.5 w-1.5 rounded-full bg-dim" /> Hedera
+              <span className="h-1.5 w-1.5 rounded-full bg-dim" /> <Term name="ENSv2">ENSv2</Term>
+              <span className="h-1.5 w-1.5 rounded-full bg-dim" /> <Term name="The Graph">The Graph</Term>
+              <span className="h-1.5 w-1.5 rounded-full bg-dim" /> <Term name="Hedera">Hedera</Term>
             </div>
             <div className="rounded-xl border border-border-soft bg-inset p-3 shadow-sm shadow-black/20">
               <div className="text-[10px] tracking-wide text-dim uppercase">Bounty Manager</div>
               <div className="mt-0.5 truncate font-mono text-[13px] font-medium text-heading">agentbounty.eth</div>
               <div className="mt-1.5 text-base font-bold text-heading">
-                {managerBalance !== null ? `${managerBalance.toFixed(2)} HBAR` : '—'}
+                {displayAsset === 'ADC' && managerBalanceAdc !== null
+                  ? `${managerBalanceAdc.toFixed(2)} ADC`
+                  : managerBalanceHbar !== null
+                    ? `${managerBalanceHbar.toFixed(2)} HBAR`
+                    : '—'}
               </div>
               <div className="mt-1 text-[11px] text-dim">Checks submissions, releases rewards</div>
             </div>

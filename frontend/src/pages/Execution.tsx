@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAgentStatus } from '../lib/agentStatus'
 import { describeStep } from '../lib/stepNarrative'
+import Term from '../components/Term'
 
 interface LogEntry {
   step: string
@@ -129,7 +130,7 @@ export default function Execution() {
     },
     {
       key: 'ensv2',
-      label: 'ENSv2',
+      label: <Term name="ENSv2">ENSv2</Term>,
       reached: Boolean(limitData),
       detail: limitData
         ? allowedData
@@ -146,13 +147,13 @@ export default function Execution() {
     },
     {
       key: 'graph',
-      label: 'The Graph',
+      label: <Term name="The Graph">The Graph</Term>,
       reached: Boolean(paidData?.data),
       detail: paidData?.data?.items ? `Data retrieved · ${paidData.data.items.length} transactions` : null,
     },
     {
       key: 'hedera',
-      label: 'Hedera x402',
+      label: <Term name="Hedera x402">Hedera x402</Term>,
       reached: Boolean(paidData?.settlement),
       detail: paidData?.settlement && paidAmount !== null ? `${paidAmount.toFixed(2)} ${paidAsset} paid` : null,
     },

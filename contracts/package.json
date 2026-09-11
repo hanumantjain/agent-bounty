@@ -6,6 +6,7 @@
   "scripts": {
     "compile": "node scripts/compile.js",
     "deploy": "node --env-file=.env scripts/deploy.js",
+    "associate-adc": "node --env-file=.env scripts/associateAdcToken.js",
     "test-flow": "node --env-file=.env scripts/testFlow.js"
   },
   "keywords": [],

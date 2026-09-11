@@ -4,12 +4,15 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AgentStatusProvider } from './lib/agentStatus.tsx'
+import { DisplayAssetProvider } from './lib/displayAsset.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AgentStatusProvider>
-        <App />
+        <DisplayAssetProvider>
+          <App />
+        </DisplayAssetProvider>
       </AgentStatusProvider>
     </BrowserRouter>
   </StrictMode>,

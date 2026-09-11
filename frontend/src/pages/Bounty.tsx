@@ -1,24 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { describeStep } from '../lib/stepNarrative'
+import Term from '../components/Term'
+
+interface AnalysisResult {
+  verdict: string
+  largest: { hash: string; amountUSD: number; timestamp: number; protocol: string } | null
+  reasoning?: string
+}
 
 interface BountyDetails {
   taskId: string
   creator: string
   creatorLabel: string | null
-  rewardTinybars: string
+  rewardTinybars: string | null
+  rewardAdcUnits: number | null
   description: string
   taskType: string
   status: string
   agent: string | null
   agentLabel: string | null
-  answer: {
-    verdict: string
-    threshold: number
-    largest: unknown
-    settlementAsset: string | null
-    hcsAudit: { topicId: string; sequenceNumber: string; transactionId: string } | null
-  } | null
+  answer:
+    | (AnalysisResult & {
+        firstPerProtocol: number
+        settlementAsset: string | null
+        hcsAudit: { topicId: string; sequenceNumber: string; transactionId: string } | null
+      })
+    | null
   contractAddress: string
 }
 
@@ -30,8 +38,8 @@ interface TaskTypeDef {
 
 interface CheckResult {
   matches: boolean
-  submitted: { verdict: string; largest: unknown }
-  freshAnalysis: { verdict: string; largest: unknown }
+  submitted: AnalysisResult
+  freshAnalysis: AnalysisResult
   explanation?: string
 }
 
@@ -49,6 +57,7 @@ interface RaceResult {
 
 const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
+const adc = (units: number) => (units / 100).toFixed(2)
 
 function identityBadgeClass(identity: string) {
   if (identity.startsWith('agentbounty')) return 'border-live/30 bg-live-bg text-live'
@@ -241,7 +250,9 @@ export default function Bounty() {
             <span className="text-xs text-heading">{taskTypes[bounty.taskType]?.label ?? bounty.taskType}</span>
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
-            <span className="label">Task ID</span>
+            <span className="label">
+              <Term name="Task ID">Task ID</Term>
+            </span>
             <span className="font-mono text-xs">{bounty.taskId}</span>
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
@@ -252,7 +263,7 @@ export default function Bounty() {
           </div>
           <div className="flex items-baseline justify-between border-b border-border pb-2.5">
             <span className="label">Reward</span>
-            <span>{hbar(bounty.rewardTinybars)} HBAR</span>
+            <span>{bounty.rewardTinybars !== null ? `${hbar(bounty.rewardTinybars)} HBAR` : `${adc(bounty.rewardAdcUnits!)} ADC`}</span>
           </div>
           <div className="flex items-baseline justify-between">
             <span className="label">Agent (claimant)</span>
@@ -266,16 +277,41 @@ export default function Bounty() {
               <h3>Submitted Answer</h3>
               {bounty.answer.settlementAsset && (
                 <p className="mb-1.5 text-xs text-dim">
-                  Data settled in <span className="font-semibold text-heading">{bounty.answer.settlementAsset}</span>
+                  Data settled in{' '}
+                  <span className="font-semibold text-heading">
+                    {bounty.answer.settlementAsset === 'ADC' ? (
+                      <Term name="ADC">ADC</Term>
+                    ) : (
+                      bounty.answer.settlementAsset
+                    )}
+                  </span>
                 </p>
               )}
-              <pre className="overflow-x-auto rounded-md bg-inset px-2.5 py-2 font-mono text-[11.5px] whitespace-pre-wrap break-all text-muted">
-                {JSON.stringify(bounty.answer, null, 2)}
-              </pre>
+              <div className="flex flex-col gap-2 rounded-md bg-inset px-3 py-2.5 text-[13px]">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-dim">Verdict</span>
+                  <span className={`font-semibold ${bounty.answer.verdict === 'SUSPICIOUS' ? 'text-danger' : 'text-live'}`}>
+                    {bounty.answer.verdict}
+                  </span>
+                </div>
+                {bounty.answer.reasoning && <p className="text-dim">{bounty.answer.reasoning}</p>}
+                {bounty.answer.largest && (
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="shrink-0 text-dim">Largest flagged transaction</span>
+                    <span className="truncate text-right font-mono text-heading">
+                      ${bounty.answer.largest.amountUSD.toLocaleString()} on {bounty.answer.largest.protocol}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-dim">Sample size</span>
+                  <span className="text-heading">{bounty.answer.firstPerProtocol} records per protocol</span>
+                </div>
+              </div>
               {bounty.answer.hcsAudit && (
                 <p className="mt-1.5 text-xs text-dim">
-                  Data payment logged to HCS topic {bounty.answer.hcsAudit.topicId} (sequence{' '}
-                  {bounty.answer.hcsAudit.sequenceNumber}) —{' '}
+                  Data payment logged to <Term name="HCS">HCS</Term> topic {bounty.answer.hcsAudit.topicId}{' '}
+                  (sequence {bounty.answer.hcsAudit.sequenceNumber}) —{' '}
                   <a
                     href={`https://hashscan.io/testnet/topic/${bounty.answer.hcsAudit.topicId}`}
                     target="_blank"
@@ -510,10 +546,16 @@ export default function Bounty() {
                     <div className="rounded-lg border border-border-soft bg-inset p-3">
                       <div className="label mb-1">Submitted</div>
                       <div className="text-sm text-heading">{checkResult.submitted.verdict}</div>
+                      {checkResult.submitted.reasoning && (
+                        <p className="mt-1 text-xs text-dim">{checkResult.submitted.reasoning}</p>
+                      )}
                     </div>
                     <div className="rounded-lg border border-border-soft bg-inset p-3">
                       <div className="label mb-1">Fresh re-check</div>
                       <div className="text-sm text-heading">{checkResult.freshAnalysis.verdict}</div>
+                      {checkResult.freshAnalysis.reasoning && (
+                        <p className="mt-1 text-xs text-dim">{checkResult.freshAnalysis.reasoning}</p>
+                      )}
                     </div>
                   </div>
 

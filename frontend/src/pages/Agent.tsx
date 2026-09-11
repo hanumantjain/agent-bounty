@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAgentStatus } from '../lib/agentStatus'
+import { useDisplayAsset } from '../lib/displayAsset'
+import Term from '../components/Term'
 
 interface Identity {
   subname: string
@@ -31,6 +33,7 @@ const TX_TYPE_LABELS: Record<string, string> = {
 
 export default function Agent() {
   const { lastPayment } = useAgentStatus()
+  const { displayAsset } = useDisplayAsset()
   const [selected, setSelected] = useState('researcher')
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +69,7 @@ export default function Agent() {
         <p className="mt-1.5 text-sm text-dim">Your agent's ENSv2 identity, permissions and spending limits.</p>
       </div>
 
-      <div className="mb-6 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         {IDENTITIES.map((name) => (
           <button
             key={name}
@@ -77,6 +80,10 @@ export default function Agent() {
           </button>
         ))}
       </div>
+      <p className="mb-6 text-xs text-dim">
+        Three separate identities, each with its own wallet and spending limit — so when several agents compete for
+        the same bounty, it's a real race between independent signers, not one wallet racing itself.
+      </p>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
@@ -90,8 +97,12 @@ export default function Agent() {
               <div>
                 <div className="mb-1.5 font-mono text-base font-semibold text-heading">{identity.subname}</div>
                 <div className="flex flex-wrap gap-1.5">
-                  <span className="tag">ENSv2</span>
-                  <span className="tag">Sepolia</span>
+                  <span className="tag">
+                    <Term name="ENSv2">ENSv2</Term>
+                  </span>
+                  <span className="tag">
+                    <Term name="Sepolia">Sepolia</Term>
+                  </span>
                 </div>
               </div>
             </div>
@@ -104,13 +115,13 @@ export default function Agent() {
             <span className="label">Agent permissions</span>
             <div className="mt-2.5 flex flex-col gap-2.5">
               {[
-                { label: 'Data access (Hedera x402)', allowed: true },
-                { label: 'Bounty execution', allowed: true },
-                { label: 'Payment execution', allowed: true },
-                { label: 'Direct fund transfer', allowed: false },
+                { key: 'data-access', label: <>Data access (<Term name="Hedera x402">Hedera x402</Term>)</>, allowed: true },
+                { key: 'bounty-execution', label: 'Bounty execution', allowed: true },
+                { key: 'payment-execution', label: 'Payment execution', allowed: true },
+                { key: 'fund-transfer', label: 'Direct fund transfer', allowed: false },
               ].map((perm, i, arr) => (
                 <div
-                  key={perm.label}
+                  key={perm.key}
                   className={`flex items-center justify-between text-[13px] ${i < arr.length - 1 ? 'border-b border-border-soft pb-2.5' : ''}`}
                 >
                   <span className="text-muted">{perm.label}</span>
@@ -131,13 +142,24 @@ export default function Agent() {
           <div className="flex items-baseline justify-between border-b border-border pb-3.5">
             <span className="label">Wallet balance</span>
             <div className="flex items-baseline gap-4">
-              <span className="text-xl font-bold text-heading">
-                {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
-                  ? `${wallet.balanceHbar.toFixed(2)} HBAR`
-                  : '—'}
-              </span>
-              {wallet?.adcBalance !== null && wallet?.adcBalance !== undefined && (
-                <span className="text-xl font-bold text-heading">{wallet.adcBalance.toFixed(2)} ADC</span>
+              {displayAsset === 'ADC' && wallet?.adcBalance !== null && wallet?.adcBalance !== undefined ? (
+                <>
+                  <span className="text-xl font-bold text-heading">{wallet.adcBalance.toFixed(2)} ADC</span>
+                  {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined && (
+                    <span className="text-xl font-bold text-heading">{wallet.balanceHbar.toFixed(2)} HBAR</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-xl font-bold text-heading">
+                    {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
+                      ? `${wallet.balanceHbar.toFixed(2)} HBAR`
+                      : '—'}
+                  </span>
+                  {wallet?.adcBalance !== null && wallet?.adcBalance !== undefined && (
+                    <span className="text-xl font-bold text-heading">{wallet.adcBalance.toFixed(2)} ADC</span>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -167,9 +189,8 @@ export default function Agent() {
           </div>
 
           <p className="text-sm text-dim">
-            Resolved live from Sepolia via a dedicated Permissioned Resolver and a key-scoped
-            Enhanced Access Control role on the <code>agent.spending.limit</code> text record — not
-            a hardcoded value.
+            Resolved live from an ENS text record on Sepolia (<code>agent.spending.limit</code>), writable only by a
+            narrowly-scoped on-chain permission — not a hardcoded value.
           </p>
         </div>
       )}

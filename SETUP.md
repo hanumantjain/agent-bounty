@@ -69,11 +69,17 @@ This takes a few minutes (there's a ~70 second commit-reveal wait built into ENS
 
 ## 5. Deploy the bounty escrow contract
 
+The contract can fund and pay out a bounty's reward in either HBAR or ADC (the same HTS data-credit
+token from step 3), so it needs to know the ADC token's ID at deploy time — set
+`DATA_CREDIT_TOKEN_ID` in `contracts/.env` (same value as `agent/.env`'s) before deploying.
+
 ```bash
 cd contracts
 npm install
 npm run compile
 npm run deploy
+npm run associate-adc   # one-time: lets the contract hold ADC in escrow — must run before any
+                         # ADC-funded bounty is created, or funding it will revert
 ```
 
 Copy the printed contract address into `BOUNTY_CONTRACT_ADDRESS` in both `agent/.env` and `backend/.env`.

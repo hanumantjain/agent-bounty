@@ -10,18 +10,39 @@ export const hederaTestnet = defineChain({
 
 export const BOUNTY_ESCROW_ABI = parseAbi([
   'function createBounty(bytes32 taskId, string description, string taskType) payable',
+  'function createBountyWithToken(bytes32 taskId, string description, string taskType, uint256 amount)',
   'function claimBounty(bytes32 taskId)',
   'function submitAnswer(bytes32 taskId, bytes answer)',
   'function releaseReward(bytes32 taskId, bool verified)',
-  'function getBounty(bytes32 taskId) view returns ((address creator, uint256 reward, string description, string taskType, uint8 status, address agent, bytes answer))',
+  'function getBounty(bytes32 taskId) view returns ((address creator, uint256 reward, uint8 asset, string description, string taskType, uint8 status, address agent, bytes answer))',
 ])
 
+// ERC-20 facade call on the ADC token's own EVM address — needed for the standard
+// "approve then pull" two-step flow createBountyWithToken relies on (see createBountyWithToken
+// below). Every HTS fungible token exposes this facade automatically (HIP-218/376).
+const ERC20_APPROVE_ABI = parseAbi(['function approve(address spender, uint256 amount) returns (bool)'])
+
 const BOUNTY_CREATED_EVENT = parseAbiItem(
-  'event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, string description, string taskType)',
+  'event BountyCreated(bytes32 indexed taskId, address indexed creator, uint256 reward, uint8 asset, string description, string taskType)',
 )
 
 export const BountyStatus = { None: 0, Open: 1, Claimed: 2, Submitted: 3, Paid: 4, Rejected: 5 }
 export const BountyStatusNames = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
+
+export const BountyAsset = { HBAR: 0, ADC: 1 }
+export const BountyAssetNames = ['HBAR', 'ADC']
+
+// Hedera's deterministic shard-0/realm-0 "long-zero" EVM address form — the same scheme every
+// mirror-node/HashScan link already uses for an entity ID. Used to turn DATA_CREDIT_TOKEN_ID
+// into the address the ADC token's ERC-20 facade calls need.
+export function hederaIdToEvmAddress(hederaId) {
+  const num = BigInt(hederaId.split('.').pop())
+  return `0x${num.toString(16).padStart(40, '0')}`
+}
+
+const ADC_TOKEN_EVM_ADDRESS = process.env.DATA_CREDIT_TOKEN_ID
+  ? hederaIdToEvmAddress(process.env.DATA_CREDIT_TOKEN_ID)
+  : null
 
 /// Resolves which Hedera account an identity should sign with. Falls back to the shared
 /// AGENT_HEDERA_* trio when an identity has no dedicated account configured — this keeps every
@@ -84,9 +105,11 @@ export async function writeAndConfirm(walletClient, publicClient, { address, abi
   // Hashio's own gas estimation under-shoots for these writes (see the module comment above),
   // so every call pins an explicit limit rather than trusting the pre-flight estimate. Bumped
   // from 300_000 after submitAnswer started reverting with INSUFFICIENT_GAS once the answer
-  // payload grew slightly (embedding the HCS audit record) — plenty of headroom now, and an
-  // unused gas limit doesn't cost extra on Hedera, only gas actually consumed does.
-  const hash = await walletClient.writeContract({ address, abi, functionName, args, account, value, gas: 600_000n })
+  // payload grew slightly (embedding the HCS audit record), then again from 600_000 once
+  // createBountyWithToken/releaseReward started touching the ADC token's ERC-20 facade (an HTS
+  // token transfer costs noticeably more gas than a plain state write) — plenty of headroom now,
+  // and an unused gas limit doesn't cost extra on Hedera, only gas actually consumed does.
+  const hash = await walletClient.writeContract({ address, abi, functionName, args, account, value, gas: 900_000n })
   const receipt = await publicClient.waitForTransactionReceipt({ hash })
   if (receipt.status !== 'success') {
     throw new Error(`${functionName} reverted on-chain (tx ${hash})`)
@@ -113,6 +136,41 @@ export async function createBounty({
     account,
   })
   return { taskId, hash }
+}
+
+// Two sequential transactions — the standard ERC-20 "approve then pull" pattern, and why
+// createBountyWithToken on the contract side is non-payable rather than accepting a stray
+// msg.value: (1) approve the escrow contract to pull `rewardAdcUnits` from the creator's own
+// ADC balance, (2) fund the bounty, which internally calls transferFrom using that allowance.
+export async function createBountyWithToken({
+  walletClient,
+  publicClient,
+  contractAddress,
+  account,
+  description,
+  rewardAdcUnits,
+  taskType,
+}) {
+  if (!ADC_TOKEN_EVM_ADDRESS) throw new Error('DATA_CREDIT_TOKEN_ID not set')
+  const taskId = keccak256(stringToHex(`bounty-${Date.now()}`))
+
+  const approveHash = await writeAndConfirm(walletClient, publicClient, {
+    address: ADC_TOKEN_EVM_ADDRESS,
+    abi: ERC20_APPROVE_ABI,
+    functionName: 'approve',
+    args: [contractAddress, BigInt(rewardAdcUnits)],
+    account,
+  })
+
+  const hash = await writeAndConfirm(walletClient, publicClient, {
+    address: contractAddress,
+    abi: BOUNTY_ESCROW_ABI,
+    functionName: 'createBountyWithToken',
+    args: [taskId, description, taskType, BigInt(rewardAdcUnits)],
+    account,
+  })
+
+  return { taskId, approveHash, hash }
 }
 
 export async function claimBounty({ walletClient, publicClient, contractAddress, account, taskId }) {

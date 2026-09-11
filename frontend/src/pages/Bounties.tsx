@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAgentStatus } from '../lib/agentStatus'
+import { useDisplayAsset } from '../lib/displayAsset'
+import Term from '../components/Term'
 
 interface Bounty {
   taskId: string
   creator: string
-  rewardTinybars: string
+  rewardTinybars: string | null
+  rewardAdcUnits: number | null
   description: string
   taskType: string
   status: string
@@ -43,8 +46,11 @@ const TASK_ICONS: Record<string, string> = {
   'liquidation-anomaly': '⚡',
 }
 
+const defaultRewardAmount = (asset: 'HBAR' | 'ADC') => (asset === 'ADC' ? '10' : '0.05')
+
 export default function Bounties() {
   const { isRunning, currentStep, activeIdentity } = useAgentStatus()
+  const { displayAsset } = useDisplayAsset()
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -52,7 +58,8 @@ export default function Bounties() {
   const [taskTypes, setTaskTypes] = useState<Record<string, TaskTypeDef>>({})
   const [showForm, setShowForm] = useState(false)
   const [description, setDescription] = useState('')
-  const [rewardHbar, setRewardHbar] = useState('0.05')
+  const [rewardAsset, setRewardAsset] = useState<'HBAR' | 'ADC'>(displayAsset)
+  const [rewardAmount, setRewardAmount] = useState(defaultRewardAmount(displayAsset))
   const [taskType, setTaskType] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -115,14 +122,19 @@ export default function Bounties() {
     setCreating(true)
     setCreateError(null)
     try {
+      const body =
+        rewardAsset === 'ADC'
+          ? { description, taskType, asset: 'ADC', rewardAdcUnits: Math.round(Number(rewardAmount) * 100) }
+          : { description, taskType, asset: 'HBAR', rewardHbar: rewardAmount }
       const res = await fetch('/api/bounty/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, rewardHbar, taskType }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error((await res.json()).error ?? 'failed to create bounty')
       setDescription('')
-      setRewardHbar('0.05')
+      setRewardAsset(displayAsset)
+      setRewardAmount(defaultRewardAmount(displayAsset))
       setShowForm(false)
       loadBounties()
     } catch (e) {
@@ -147,7 +159,14 @@ export default function Bounties() {
           <span className={isRunning ? 'text-live' : 'text-dim'}>{isRunning ? 'Agent Active' : 'Agent Idle'}</span>
         </div>
         {!showForm && (
-          <button className="btn-ghost" onClick={() => setShowForm(true)}>
+          <button
+            className="btn-ghost"
+            onClick={() => {
+              setRewardAsset(displayAsset)
+              setRewardAmount(defaultRewardAmount(displayAsset))
+              setShowForm(true)
+            }}
+          >
             + Post a Bounty
           </button>
         )}
@@ -161,6 +180,24 @@ export default function Bounties() {
             : 'Find and assign bounties to your AI agents.'}
         </p>
       </div>
+
+      <details className="card mb-6">
+        <summary className="cursor-pointer text-sm font-semibold text-heading select-none">How this works</summary>
+        <ol className="mt-3 flex flex-col gap-2 text-sm text-dim">
+          <li>
+            <span className="text-heading">1. Post a bounty</span> — describe a task and fund it with real testnet
+            HBAR or ADC.
+          </li>
+          <li>
+            <span className="text-heading">2. An AI agent claims it</span> — it pays per-record for live DeFi data
+            (in HBAR or ADC) and submits an answer on-chain.
+          </li>
+          <li>
+            <span className="text-heading">3. The answer gets verified</span> — an independent recheck confirms it
+            before the reward is released.
+          </li>
+        </ol>
+      </details>
 
       {showForm && (
         <div className="card mb-6">
@@ -186,6 +223,7 @@ export default function Bounties() {
                     {s.description}
                   </button>
                 ))}
+                <p className="text-xs text-dim">AI-drafted from live data — review before posting, not a guarantee.</p>
               </div>
             )}
           </div>
@@ -213,14 +251,29 @@ export default function Bounties() {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="label">Reward (HBAR)</span>
+              <span className="label">Reward asset</span>
+              <select
+                className="w-24 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
+                value={rewardAsset}
+                onChange={(e) => {
+                  const next = e.target.value as 'HBAR' | 'ADC'
+                  setRewardAsset(next)
+                  setRewardAmount(next === 'ADC' ? '10' : '0.05')
+                }}
+              >
+                <option value="HBAR">HBAR</option>
+                <option value="ADC">ADC</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="label">Reward amount</span>
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 className="w-32 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
-                value={rewardHbar}
-                onChange={(e) => setRewardHbar(e.target.value)}
+                value={rewardAmount}
+                onChange={(e) => setRewardAmount(e.target.value)}
               />
             </div>
             <button className="btn-primary" onClick={submitBounty} disabled={creating || !description.trim() || !taskType}>
@@ -232,14 +285,25 @@ export default function Bounties() {
           </div>
           {taskTypes[taskType] && <p className="text-xs text-dim">{taskTypes[taskType].description}</p>}
           {createError && <p className="text-sm text-danger">{createError}</p>}
-          <p className="text-xs text-dim">Funds the bounty with real testnet HBAR in the same transaction.</p>
+          <p className="text-xs text-dim">
+            {rewardAsset === 'ADC'
+              ? 'Funds the bounty with real testnet ADC — this needs an approval step first, so posting takes two transactions.'
+              : 'Funds the bounty with real testnet HBAR in the same transaction.'}
+          </p>
         </div>
       )}
 
       {identity && (
-        <p className="mb-4 text-xs text-dim">
+        <p className="mb-1.5 text-xs text-dim">
           {activeIdentity} identity spend limit: <span className="text-heading">{identity.spendingLimitHbar} HBAR</span> —
           the agent skips any bounty priced above this when it runs.
+        </p>
+      )}
+
+      {bounties.some((b) => b.dataPriceAdcUnits !== null) && (
+        <p className="mb-4 text-xs text-dim">
+          <Term name="ADC">ADC</Term> is an alternate Hedera token agents can pay with instead of HBAR — either
+          currency covers this bounty's data cost; the amount shown follows the display toggle above.
         </p>
       )}
 
@@ -257,6 +321,14 @@ export default function Bounties() {
             Post one above, or run <code>npm run create-bounty</code> in <code>agent/</code>
           </p>
         </div>
+      )}
+
+      {sortedBounties.length > 0 && (
+        <p className="mb-3 text-xs text-dim">
+          Status: <span className="text-heading">Open</span> → <span className="text-heading">Claimed</span> →{' '}
+          <span className="text-heading">Submitted</span> → <span className="text-heading">Paid</span> (or{' '}
+          <span className="text-heading">Rejected</span>)
+        </p>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -284,19 +356,17 @@ export default function Bounties() {
             <div className="grid grid-cols-2 gap-6 border-t border-border pt-5">
               <div className="flex flex-col gap-1">
                 <span className="label">Reward</span>
-                <span className="text-xl font-bold text-heading">{hbar(bounty.rewardTinybars)} HBAR</span>
+                <span className="text-xl font-bold text-heading">
+                  {bounty.rewardTinybars !== null ? `${hbar(bounty.rewardTinybars)} HBAR` : `${adc(bounty.rewardAdcUnits!)} ADC`}
+                </span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="label">Data cost</span>
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-xl font-bold text-heading">{hbar(bounty.dataPriceTinybars)} HBAR</span>
-                  {bounty.dataPriceAdcUnits !== null && (
-                    <>
-                      <span className="text-sm text-dim">or</span>
-                      <span className="text-xl font-bold text-heading">{adc(bounty.dataPriceAdcUnits)} ADC</span>
-                    </>
-                  )}
-                </div>
+                <span className="text-xl font-bold text-heading">
+                  {displayAsset === 'ADC' && bounty.dataPriceAdcUnits !== null
+                    ? `${adc(bounty.dataPriceAdcUnits)} ADC`
+                    : `${hbar(bounty.dataPriceTinybars)} HBAR`}
+                </span>
               </div>
               <div className="col-span-2 flex flex-col gap-1">
                 <span className="label">Agent</span>

@@ -20,13 +20,16 @@ function decodeAnswer(answerHex) {
 }
 
 const STATUS_NAMES = ['None', 'Open', 'Claimed', 'Submitted', 'Paid', 'Rejected']
+const ASSET_NAMES = ['HBAR', 'ADC']
 
 function serializeBounty(taskId, bounty, agentLabel, creatorLabel) {
+  const asset = ASSET_NAMES[bounty.asset]
   return {
     taskId,
     creator: bounty.creator,
     creatorLabel: creatorLabel ?? null,
-    rewardTinybars: bounty.reward.toString(),
+    rewardTinybars: asset === 'HBAR' ? bounty.reward.toString() : null,
+    rewardAdcUnits: asset === 'ADC' ? Number(bounty.reward) : null,
     description: bounty.description,
     taskType: bounty.taskType,
     status: STATUS_NAMES[bounty.status],
@@ -91,27 +94,44 @@ router.get('/suggestions', async (req, res) => {
 router.post('/create', async (req, res) => {
   try {
     const description = String(req.body?.description ?? '').trim()
-    const rewardHbar = Number(req.body?.rewardHbar)
+    const asset = req.body?.asset === 'ADC' ? 'ADC' : 'HBAR'
     const taskType = String(req.body?.taskType ?? '')
 
     if (!description) return res.status(400).json({ error: 'description is required' })
-    if (!(rewardHbar > 0)) return res.status(400).json({ error: 'rewardHbar must be a positive number' })
 
-    const { makeHederaEvmClients, createBounty } = await import('../../agent/lib/bountyEscrow.js')
+    const { makeHederaEvmClients, createBounty, createBountyWithToken } = await import('../../agent/lib/bountyEscrow.js')
     const { getTaskDefinition } = await import('../../agent/lib/tasks.js')
     if (!getTaskDefinition(taskType)) return res.status(400).json({ error: `unsupported taskType: ${taskType}` })
 
     const { account, publicClient, walletClient } = makeHederaEvmClients()
+    const contractAddress = process.env.BOUNTY_CONTRACT_ADDRESS
 
-    const result = await createBounty({
-      walletClient,
-      publicClient,
-      contractAddress: process.env.BOUNTY_CONTRACT_ADDRESS,
-      account,
-      description,
-      rewardHbar,
-      taskType,
-    })
+    let result
+    if (asset === 'ADC') {
+      const rewardAdcUnits = Number(req.body?.rewardAdcUnits)
+      if (!(rewardAdcUnits > 0)) return res.status(400).json({ error: 'rewardAdcUnits must be a positive number' })
+      result = await createBountyWithToken({
+        walletClient,
+        publicClient,
+        contractAddress,
+        account,
+        description,
+        rewardAdcUnits,
+        taskType,
+      })
+    } else {
+      const rewardHbar = Number(req.body?.rewardHbar)
+      if (!(rewardHbar > 0)) return res.status(400).json({ error: 'rewardHbar must be a positive number' })
+      result = await createBounty({
+        walletClient,
+        publicClient,
+        contractAddress,
+        account,
+        description,
+        rewardHbar,
+        taskType,
+      })
+    }
 
     res.json(result)
   } catch (err) {
