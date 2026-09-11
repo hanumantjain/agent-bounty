@@ -141,27 +141,13 @@ export default function Agent() {
 
           <div className="flex items-baseline justify-between border-b border-border pb-3.5">
             <span className="label">Wallet balance</span>
-            <div className="flex items-baseline gap-4">
-              {displayAsset === 'ADC' && wallet?.adcBalance !== null && wallet?.adcBalance !== undefined ? (
-                <>
-                  <span className="text-xl font-bold text-heading">{wallet.adcBalance.toFixed(2)} ADC</span>
-                  {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined && (
-                    <span className="text-xl font-bold text-heading">{wallet.balanceHbar.toFixed(2)} HBAR</span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="text-xl font-bold text-heading">
-                    {wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
-                      ? `${wallet.balanceHbar.toFixed(2)} HBAR`
-                      : '—'}
-                  </span>
-                  {wallet?.adcBalance !== null && wallet?.adcBalance !== undefined && (
-                    <span className="text-xl font-bold text-heading">{wallet.adcBalance.toFixed(2)} ADC</span>
-                  )}
-                </>
-              )}
-            </div>
+            <span className="text-xl font-bold text-heading">
+              {displayAsset === 'ADC' && wallet?.adcBalance !== null && wallet?.adcBalance !== undefined
+                ? `${wallet.adcBalance.toFixed(2)} ADC`
+                : wallet?.balanceHbar !== null && wallet?.balanceHbar !== undefined
+                  ? `${wallet.balanceHbar.toFixed(2)} HBAR`
+                  : '—'}
+            </span>
           </div>
           <p className="text-xs text-dim">
             Data payments settle in whichever asset this identity can actually afford — ADC when its balance covers
@@ -173,6 +159,12 @@ export default function Agent() {
               <span className="label">Maximum spend</span>
               <span className="text-xl font-bold text-heading">{identity.spendingLimitHbar} HBAR</span>
             </div>
+            {displayAsset === 'ADC' && (
+              <p className="mb-2 text-xs text-dim">
+                Always HBAR — this identity's declared limit has no ADC equivalent; ADC affordability is checked
+                against its real live balance instead (see above), not a declared cap.
+              </p>
+            )}
             <div className="h-1.5 overflow-hidden rounded-full bg-inset shadow-inner shadow-black/40">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-live/70 to-live transition-all duration-500"

@@ -84,7 +84,8 @@ router.get('/current', async (req, res) => {
 // as a literal taskId value (same ordering caution as /list and /current above).
 router.get('/suggestions', async (req, res) => {
   try {
-    const suggestions = await getSuggestions()
+    const taskType = typeof req.query.taskType === 'string' ? req.query.taskType : undefined
+    const suggestions = await getSuggestions(taskType)
     res.json({ suggestions })
   } catch (err) {
     res.status(502).json({ error: err.message })

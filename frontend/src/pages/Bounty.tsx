@@ -113,6 +113,30 @@ function summarizeOutcome(entries: RaceLogEntry[], isWinner: boolean, blocked: A
   return null
 }
 
+// The race log only ever exists as a live SSE narration — nothing about it is stored on-chain
+// (only the final claim/submit/release events are), so revisiting a bounty's page in a fresh
+// component instance would otherwise show none of it even though the race genuinely happened.
+// Persisted per-bounty in this browser so a later visit (or a page reload right after a race)
+// still shows what was watched live, not a global/shared record.
+const RACE_LOG_STORAGE_PREFIX = 'agentbounty.raceLog.'
+
+function loadStoredRace(taskId: string): { raceLog: RaceLogEntry[]; raceResult: RaceResult | null } | null {
+  try {
+    const raw = localStorage.getItem(`${RACE_LOG_STORAGE_PREFIX}${taskId}`)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveStoredRace(taskId: string, raceLog: RaceLogEntry[], raceResult: RaceResult | null) {
+  try {
+    localStorage.setItem(`${RACE_LOG_STORAGE_PREFIX}${taskId}`, JSON.stringify({ raceLog, raceResult }))
+  } catch {
+    // localStorage unavailable — non-critical, skip persistence
+  }
+}
+
 export default function Bounty() {
   const { taskId } = useParams<{ taskId?: string }>()
   const [bounty, setBounty] = useState<BountyDetails | null>(null)
@@ -152,6 +176,24 @@ export default function Bounty() {
   useEffect(() => {
     return () => raceSourceRef.current?.close()
   }, [])
+
+  // Resets and rehydrates whenever the loaded bounty changes (including switching between two
+  // different bounties without a full page remount) — otherwise a race log from a previously
+  // viewed bounty could incorrectly linger on a different one.
+  useEffect(() => {
+    if (!bounty?.taskId) return
+    const stored = loadStoredRace(bounty.taskId)
+    setRaceLog(stored?.raceLog ?? [])
+    setRaceResult(stored?.raceResult ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bounty?.taskId])
+
+  // Guarded on raceLog.length > 0 so this never fires with the empty initial state and clobbers
+  // what the hydration effect above just read from storage.
+  useEffect(() => {
+    if (!bounty?.taskId || raceLog.length === 0) return
+    saveStoredRace(bounty.taskId, raceLog, raceResult)
+  }, [bounty?.taskId, raceLog, raceResult])
 
   const runCheck = async () => {
     if (!bounty) return
@@ -331,20 +373,22 @@ export default function Bounty() {
             <div className="banner banner-blocked">✗ Rejected by agentbounty.eth — reward withheld.</div>
           )}
 
-          {bounty.status === 'Open' && (
+          {(bounty.status === 'Open' || raceLog.length > 0) && (
             <div>
-              <span className="label">Activate</span>
-              <p className="mt-1.5 mb-3 text-sm text-dim">
-                {RACE_PARTICIPANTS.map((name, i) => (
-                  <span key={name}>
-                    {i > 0 && (i === RACE_PARTICIPANTS.length - 1 ? ' and ' : ', ')}
-                    <strong className="text-heading">{name}</strong>
-                  </span>
-                ))}{' '}
-                will all try to grab this job at the same time. Only one can win it. The winner
-                does the work and gets paid automatically, with no human needing to click
-                anything.
-              </p>
+              <span className="label">{raceLog.length > 0 ? 'Activation results' : 'Activate'}</span>
+              {raceLog.length === 0 && (
+                <p className="mt-1.5 mb-3 text-sm text-dim">
+                  {RACE_PARTICIPANTS.map((name, i) => (
+                    <span key={name}>
+                      {i > 0 && (i === RACE_PARTICIPANTS.length - 1 ? ' and ' : ', ')}
+                      <strong className="text-heading">{name}</strong>
+                    </span>
+                  ))}{' '}
+                  will all try to grab this job at the same time. Only one can win it. The winner
+                  does the work and gets paid automatically, with no human needing to click
+                  anything.
+                </p>
+              )}
 
               {raceLog.length === 0 && (
                 <button className="btn-primary" onClick={activateBounty} disabled={racing}>

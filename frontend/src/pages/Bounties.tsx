@@ -102,7 +102,7 @@ export default function Bounties() {
     setSuggestLoading(true)
     setSuggestError(null)
     try {
-      const res = await fetch('/api/bounty/suggestions')
+      const res = await fetch(`/api/bounty/suggestions?taskType=${encodeURIComponent(taskType)}`)
       if (!res.ok) throw new Error((await res.json()).error ?? 'failed to get suggestions')
       const { suggestions: result } = await res.json()
       setSuggestions(result)
@@ -113,8 +113,9 @@ export default function Bounties() {
     }
   }
 
+  // Task type is already chosen (that's what getSuggestions was scoped to) — a suggestion only
+  // ever fills in the description, it never changes the selected task type.
   const applySuggestion = (s: Suggestion) => {
-    setTaskType(s.taskType)
     setDescription(s.description)
   }
 
@@ -203,9 +204,29 @@ export default function Bounties() {
         <div className="card mb-6">
           <span className="label">Post a bounty</span>
 
+          <div className="flex flex-col gap-1">
+            <span className="label">Task type</span>
+            <select
+              className="w-48 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
+              value={taskType}
+              onChange={(e) => {
+                setTaskType(e.target.value)
+                setSuggestions(null)
+                setSuggestError(null)
+              }}
+            >
+              {Object.entries(taskTypes).map(([key, def]) => (
+                <option key={key} value={key}>
+                  {def.label}
+                </option>
+              ))}
+            </select>
+            {taskTypes[taskType] && <p className="mt-1 text-xs text-dim">{taskTypes[taskType].description}</p>}
+          </div>
+
           <div className="flex flex-col gap-2">
-            <button className="btn-ghost w-fit" onClick={getSuggestions} disabled={suggestLoading}>
-              {suggestLoading ? 'Thinking…' : '💡 Get suggestions from live data'}
+            <button className="btn-ghost w-fit" onClick={getSuggestions} disabled={suggestLoading || !taskType}>
+              {suggestLoading ? 'Thinking…' : `💡 Get a suggestion for ${taskTypes[taskType]?.label ?? 'this task type'}`}
             </button>
             {suggestError && <p className="text-xs text-danger">{suggestError}</p>}
             {suggestions && suggestions.length === 0 && !suggestError && (
@@ -219,7 +240,6 @@ export default function Bounties() {
                     onClick={() => applySuggestion(s)}
                     className="rounded-lg border border-border-soft bg-inset p-3 text-left text-sm text-muted transition-colors hover:border-border hover:bg-white/[0.03]"
                   >
-                    <span className="tag mr-2">{taskTypes[s.taskType]?.label ?? s.taskType}</span>
                     {s.description}
                   </button>
                 ))}
@@ -236,20 +256,6 @@ export default function Bounties() {
             onChange={(e) => setDescription(e.target.value)}
           />
           <div className="flex items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="label">Task type</span>
-              <select
-                className="w-48 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
-                value={taskType}
-                onChange={(e) => setTaskType(e.target.value)}
-              >
-                {Object.entries(taskTypes).map(([key, def]) => (
-                  <option key={key} value={key}>
-                    {def.label}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="flex flex-col gap-1">
               <span className="label">Reward asset</span>
               <select
@@ -283,7 +289,6 @@ export default function Bounties() {
               Cancel
             </button>
           </div>
-          {taskTypes[taskType] && <p className="text-xs text-dim">{taskTypes[taskType].description}</p>}
           {createError && <p className="text-sm text-danger">{createError}</p>}
           <p className="text-xs text-dim">
             {rewardAsset === 'ADC'

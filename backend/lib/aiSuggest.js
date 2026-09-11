@@ -13,6 +13,10 @@ const ENTITY_TASK_TYPES = {
   liquidates: 'liquidation-anomaly',
 }
 
+// Reverse lookup, used to scope suggestions to a single already-chosen task type instead of
+// scanning every entity.
+const TASK_TYPE_ENTITIES = Object.fromEntries(Object.entries(ENTITY_TASK_TYPES).map(([entity, type]) => [type, entity]))
+
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OPENAI_API_KEY not set')
@@ -44,9 +48,15 @@ function largestOf(items) {
 }
 
 // Grounds every suggestion in real, freshly-fetched subgraph data — the model is only ever
-// asked to phrase what's already true, never to invent an amount or protocol.
-async function getSuggestions() {
-  const entities = Object.keys(ENTITY_TASK_TYPES)
+// asked to phrase what's already true, never to invent an amount or protocol. When `taskType`
+// is given (the create-bounty form already has one selected), scopes to just that type's entity
+// so a suggestion only ever proposes a description for the chosen category, never a different
+// one — matches the flow where task type is chosen first. Falls back to scanning every known
+// entity when omitted.
+async function getSuggestions(taskType) {
+  const entities = taskType ? [TASK_TYPE_ENTITIES[taskType]].filter(Boolean) : Object.keys(ENTITY_TASK_TYPES)
+  if (entities.length === 0) return []
+
   const signals = await Promise.all(
     entities.map(async (entity) => {
       try {
@@ -69,11 +79,16 @@ async function getSuggestions() {
     .join('\n')
 
   const validTaskTypes = realFindings.map((s) => ENTITY_TASK_TYPES[s.entity])
+  const maxSuggestions = taskType ? 1 : 3
+
+  const instructions = taskType
+    ? `Suggest one specific, compelling bounty description a user could post right now for a "${taskType}" bounty, based on the real finding above.`
+    : `Suggest up to 3 specific, compelling bounty ideas a user could post right now, each based on one of the real findings above.`
 
   const prompt = `Here is real, live activity just observed across DeFi lending protocols (Aave V3, Compound III, Morpho Aave V3):
 ${summary}
 
-Suggest up to 3 specific, compelling bounty ideas a user could post right now, each based on one of the real findings above. Respond with ONLY a JSON array, no other text, each item shaped exactly as:
+${instructions} Respond with ONLY a JSON array, no other text, each item shaped exactly as:
 {"taskType": one of [${validTaskTypes.map((t) => `"${t}"`).join(', ')}], "description": "one sentence referencing the specific real number and protocol above"}`
 
   let raw
@@ -86,7 +101,9 @@ Suggest up to 3 specific, compelling bounty ideas a user could post right now, e
   try {
     const jsonMatch = raw.match(/\[[\s\S]*\]/)
     const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw)
-    return parsed.filter((s) => validTaskTypes.includes(s.taskType) && typeof s.description === 'string').slice(0, 3)
+    return parsed
+      .filter((s) => validTaskTypes.includes(s.taskType) && typeof s.description === 'string')
+      .slice(0, maxSuggestions)
   } catch {
     return []
   }
