@@ -107,7 +107,7 @@ export default function Agent() {
               </div>
             </div>
             <span className="badge badge-live">
-              <span className="h-1.5 w-1.5 rounded-full bg-live" /> Verified
+              Verified
             </span>
           </div>
 

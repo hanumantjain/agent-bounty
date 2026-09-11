@@ -9,7 +9,7 @@ export default function AssetToggle() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] tracking-wide text-dim uppercase">Show amounts in</span>
+      <span className="label">Show amounts in</span>
       <button
         type="button"
         role="switch"
@@ -18,7 +18,7 @@ export default function AssetToggle() {
         className="relative inline-flex h-6 w-24 shrink-0 cursor-pointer items-center rounded-full border border-border bg-inset transition-colors"
       >
         <span
-          className={`absolute top-0.5 h-5 w-11 rounded-full bg-heading shadow transition-transform duration-200 ${
+          className={`absolute top-0.5 h-5 w-11 rounded-full bg-signal shadow transition-transform duration-200 ${
             isAdc ? 'translate-x-0.5' : 'translate-x-[46px]'
           }`}
         />

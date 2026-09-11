@@ -1,25 +1,27 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg: #09090b;
-  --color-surface: #18181b;
-  --color-inset: #101012;
-  --color-border: #27272a;
-  --color-border-soft: #1c1c1f;
-  --color-muted: #a1a1aa;
-  --color-dim: #71717a;
-  --color-heading: #fafafa;
-  --color-live: #22c55e;
-  --color-live-bg: rgba(34, 197, 94, 0.1);
-  --color-danger: #ef4444;
-  --color-danger-bg: rgba(239, 68, 68, 0.1);
-  --color-info: #60a5fa;
-  --color-info-bg: rgba(96, 165, 250, 0.1);
-  --color-warning: #fbbf24;
-  --color-warning-bg: rgba(251, 191, 36, 0.1);
+  --color-bg: #14151a;
+  --color-surface: #1c1e24;
+  --color-inset: #17181d;
+  --color-border: #2e2f38;
+  --color-border-soft: #23242c;
+  --color-muted: #a8a6a0;
+  --color-dim: #75726c;
+  --color-heading: #f3efe6;
+  --color-signal: #e8a33d;
+  --color-signal-bg: rgba(232, 163, 61, 0.12);
+  --color-live: #55c285;
+  --color-live-bg: rgba(85, 194, 133, 0.12);
+  --color-danger: #e2604f;
+  --color-danger-bg: rgba(226, 96, 79, 0.12);
+  --color-info: #7c96b3;
+  --color-info-bg: rgba(124, 150, 179, 0.12);
+  --color-warning: #e8a33d;
+  --color-warning-bg: rgba(232, 163, 61, 0.12);
 
-  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: ui-monospace, Consolas, monospace;
+  --font-sans: 'IBM Plex Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
 }
 
 @layer base {
@@ -31,9 +33,7 @@
 
   body {
     @apply m-0 bg-bg text-muted font-sans antialiased;
-    background-image:
-      radial-gradient(ellipse 70% 45% at 15% -10%, rgba(255, 255, 255, 0.05), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34, 197, 94, 0.04), transparent);
+    background-image: radial-gradient(ellipse 60% 40% at 100% 0%, rgba(232, 163, 61, 0.05), transparent);
     background-attachment: fixed;
   }
 
@@ -50,11 +50,13 @@
   }
 
   h3 {
-    @apply mt-5 mb-2.5 text-[11px] font-semibold tracking-widest text-dim uppercase;
+    @apply mt-5 mb-2.5 border-b border-border-soft pb-1.5 text-[13px] font-semibold text-muted;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.02em;
   }
 
   code {
-    @apply rounded bg-inset px-1.5 py-0.5 font-mono text-[13px] text-heading;
+    @apply rounded-sm bg-inset px-1.5 py-0.5 font-mono text-[13px] text-heading;
   }
 
   a {
@@ -64,92 +66,113 @@
 
 @layer components {
   .card {
-    @apply relative flex flex-col gap-5 rounded-2xl border border-border bg-surface p-6 shadow-xl shadow-black/30;
+    @apply relative flex flex-col gap-5 rounded-lg border border-border bg-surface p-6;
   }
 
   .card-hover {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-border-soft hover:shadow-2xl hover:shadow-black/40;
+    @apply transition-colors duration-150 hover:border-dim;
   }
 
+  /* Small caps rather than tracked-out uppercase — a label, not a shout. */
   .label {
-    @apply text-[11px] font-medium tracking-widest text-dim uppercase;
+    @apply text-[13px] font-medium text-dim;
+    font-variant-caps: small-caps;
+    letter-spacing: 0.02em;
   }
 
+  /* A signal-lamp indicator (dot + word), not a pill badge — status is read like an
+     instrument light, not a chip. Color comes from the modifier classes below. */
   .badge {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-inset px-2.5 py-1 text-[11px] font-semibold tracking-wide text-muted uppercase;
+    @apply inline-flex items-center gap-2 text-[12px] font-medium text-muted;
   }
 
-  .badge-live {
-    @apply border-live/30 bg-live-bg text-live;
+  .badge::before {
+    content: '';
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-dim;
   }
 
+  .badge-live,
   .badge-paid {
-    @apply border-live/30 bg-live-bg text-live;
+    @apply text-live;
+  }
+  .badge-live::before,
+  .badge-paid::before {
+    @apply bg-live;
   }
 
   .badge-rejected {
-    @apply border-danger/30 bg-danger-bg text-danger;
+    @apply text-danger;
+  }
+  .badge-rejected::before {
+    @apply bg-danger;
   }
 
-  .badge-open {
-    @apply border-info/30 bg-info-bg text-info;
+  .badge-open,
+  .badge-submitted {
+    @apply text-info;
+  }
+  .badge-open::before,
+  .badge-submitted::before {
+    @apply bg-info;
   }
 
   .badge-claimed {
-    @apply border-warning/30 bg-warning-bg text-warning;
+    @apply text-signal;
   }
-
-  .badge-submitted {
-    @apply border-info/30 bg-info-bg text-info;
+  .badge-claimed::before {
+    @apply bg-signal;
+    box-shadow: 0 0 0 3px var(--color-signal-bg);
   }
 
   .tag {
-    @apply rounded-md border border-border-soft bg-inset px-2 py-0.5 text-[11px] text-dim;
+    @apply rounded-sm border border-border-soft px-2 py-0.5 text-[11px] text-dim;
   }
 
   .btn-primary {
-    @apply inline-flex cursor-pointer items-center justify-center self-start rounded-lg bg-heading px-5 py-2.5 font-sans text-sm font-semibold text-bg shadow-lg shadow-black/20 transition-all hover:-translate-y-px hover:opacity-90 hover:shadow-xl active:translate-y-0 disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-lg;
+    @apply inline-flex cursor-pointer items-center justify-center self-start rounded-md bg-signal px-5 py-2.5 font-sans text-sm font-semibold text-bg transition-all hover:brightness-110 active:brightness-95 disabled:cursor-default disabled:opacity-40 disabled:hover:brightness-100;
   }
 
   .btn-ghost {
-    @apply inline-flex cursor-pointer items-center justify-center rounded-lg border border-border bg-transparent px-5 py-2.5 font-sans text-sm font-semibold text-muted transition-colors hover:border-dim hover:text-heading;
+    @apply inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-transparent px-5 py-2.5 font-sans text-sm font-semibold text-muted transition-colors hover:border-dim hover:text-heading;
   }
 
   .chip {
-    @apply cursor-pointer rounded-lg border border-border bg-transparent px-3.5 py-2 font-sans text-[13px] text-muted transition-colors hover:border-dim hover:text-heading;
+    @apply cursor-pointer rounded-md border border-border bg-transparent px-3.5 py-2 font-sans text-[13px] text-muted transition-colors hover:border-dim hover:text-heading;
   }
 
   .chip-active {
-    @apply border-heading/40 bg-surface text-heading shadow-sm hover:border-heading/40;
+    @apply border-signal/50 bg-signal-bg text-heading hover:border-signal/50;
   }
 
   .nav-item {
-    @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium text-dim no-underline transition-colors hover:bg-white/5 hover:text-heading;
+    @apply relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] font-medium text-dim no-underline transition-colors hover:bg-white/5 hover:text-heading;
   }
 
   .nav-item-active {
-    @apply bg-gradient-to-r from-white/[0.08] to-transparent text-heading;
+    @apply bg-signal-bg text-heading;
   }
 
   .nav-item-active::before {
     content: '';
-    @apply absolute top-1/2 left-0 h-4.5 w-0.5 -translate-y-1/2 rounded-full bg-heading;
+    @apply absolute top-1/2 left-0 h-4.5 w-0.5 -translate-y-1/2 rounded-full bg-signal;
   }
 
+  /* A stamped notice strip — left rule, not a filled block — closer to a manifest annotation
+     than a SaaS alert toast. */
   .banner {
-    @apply mb-5 rounded-lg px-5 py-4 text-sm font-semibold;
+    @apply mb-5 border-l-2 py-3 pl-4 text-sm font-medium;
   }
 
   .banner-blocked {
-    @apply border border-danger/30 bg-danger-bg text-danger;
+    @apply border-danger text-danger;
   }
 
   .banner-success {
-    @apply border border-live/30 bg-live-bg text-live;
+    @apply border-live text-live;
   }
 
   .empty-state {
-    @apply flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-surface/40 px-6 py-16 text-center;
+    @apply flex flex-col items-center justify-center gap-3 rounded-lg border border-border-soft px-6 py-16 text-center;
   }
 
   .empty-state-icon {
@@ -157,11 +180,11 @@
   }
 
   .pulse-dot {
-    @apply relative inline-flex h-2 w-2 rounded-full bg-live;
+    @apply relative inline-flex h-2 w-2 rounded-full bg-signal;
   }
 
   .pulse-dot::after {
     content: '';
-    @apply absolute inset-0 animate-ping rounded-full bg-live opacity-75;
+    @apply absolute inset-0 animate-ping rounded-full bg-signal opacity-75;
   }
 }

@@ -52,7 +52,8 @@ export default function Bounties() {
   const { isRunning, currentStep, activeIdentity } = useAgentStatus()
   const { displayAsset } = useDisplayAsset()
   const [bounties, setBounties] = useState<Bounty[]>([])
-  const [identity, setIdentity] = useState<Identity | null>(null)
+  const [bountiesLoading, setBountiesLoading] = useState(true)
+  const [, setIdentity] = useState<Identity | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [taskTypes, setTaskTypes] = useState<Record<string, TaskTypeDef>>({})
@@ -80,6 +81,7 @@ export default function Bounties() {
   }, [])
 
   const loadBounties = () => {
+    setBountiesLoading(true)
     fetch('/api/bounty/list')
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('failed to load bounties'))))
       .then((data: Bounty[]) => {
@@ -87,6 +89,7 @@ export default function Bounties() {
         setError(null)
       })
       .catch((e) => setError(e.message))
+      .finally(() => setBountiesLoading(false))
   }
 
   useEffect(loadBounties, [isRunning])
@@ -155,9 +158,9 @@ export default function Bounties() {
     <div className="mx-auto max-w-6xl">
       {/* Status strip */}
       <div className="mb-6 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
+        <div className="label flex items-center gap-2">
           <span className={isRunning ? 'pulse-dot' : 'inline-flex h-2 w-2 rounded-full bg-dim'} />
-          <span className={isRunning ? 'text-live' : 'text-dim'}>{isRunning ? 'Agent Active' : 'Agent Idle'}</span>
+          <span className={isRunning ? 'text-signal' : 'text-dim'}>{isRunning ? 'Agent Active' : 'Agent Idle'}</span>
         </div>
         {!showForm && (
           <button
@@ -282,12 +285,18 @@ export default function Bounties() {
                 onChange={(e) => setRewardAmount(e.target.value)}
               />
             </div>
-            <button className="btn-primary" onClick={submitBounty} disabled={creating || !description.trim() || !taskType}>
-              {creating ? 'Posting…' : 'Fund & Post'}
-            </button>
-            <button className="btn-ghost" onClick={() => setShowForm(false)} disabled={creating}>
-              Cancel
-            </button>
+            <div className="flex flex-col gap-1">
+              <span className="label invisible">Action</span>
+              <button className="btn-primary" onClick={submitBounty} disabled={creating || !description.trim() || !taskType}>
+                {creating ? 'Posting…' : 'Fund & Post'}
+              </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="label invisible">Action</span>
+              <button className="btn-ghost" onClick={() => setShowForm(false)} disabled={creating}>
+                Cancel
+              </button>
+            </div>
           </div>
           {createError && <p className="text-sm text-danger">{createError}</p>}
           <p className="text-xs text-dim">
@@ -298,12 +307,12 @@ export default function Bounties() {
         </div>
       )}
 
-      {identity && (
+      {/* {identity && (
         <p className="mb-1.5 text-xs text-dim">
           {activeIdentity} identity spend limit: <span className="text-heading">{identity.spendingLimitHbar} HBAR</span> —
           the agent skips any bounty priced above this when it runs.
         </p>
-      )}
+      )} */}
 
       {bounties.some((b) => b.dataPriceAdcUnits !== null) && (
         <p className="mb-4 text-xs text-dim">
@@ -318,7 +327,15 @@ export default function Bounties() {
         </p>
       )}
 
-      {!error && bounties.length === 0 && (
+      {bountiesLoading && bounties.length === 0 && (
+        <div className="empty-state">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-border-soft border-t-signal" />
+          <p className="text-sm font-medium text-heading">Loading bounties…</p>
+          <p className="text-xs text-dim">Reading the bounty contract's on-chain history — this can take a moment.</p>
+        </div>
+      )}
+
+      {!bountiesLoading && !error && bounties.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">◆</div>
           <p className="text-sm font-medium text-heading">No bounties yet</p>

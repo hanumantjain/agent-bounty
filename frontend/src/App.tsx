@@ -59,7 +59,7 @@ function App() {
           className={`fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 -translate-x-full flex-col gap-8 overflow-y-auto border-r border-border bg-bg p-5 transition-transform duration-200 lg:static lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : ''}`}
         >
           <div className="flex items-center gap-2.5 px-1">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-white to-zinc-400 text-base font-bold text-bg shadow-lg shadow-black/40">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-signal text-base font-bold text-bg">
               A
             </span>
             <span className="text-[16px] font-semibold text-heading">AgentBounty</span>
@@ -87,8 +87,8 @@ function App() {
               <span className="h-1.5 w-1.5 rounded-full bg-dim" /> <Term name="The Graph">The Graph</Term>
               <span className="h-1.5 w-1.5 rounded-full bg-dim" /> <Term name="Hedera">Hedera</Term>
             </div>
-            <div className="rounded-xl border border-border-soft bg-inset p-3 shadow-sm shadow-black/20">
-              <div className="text-[10px] tracking-wide text-dim uppercase">Bounty Manager</div>
+            <div className="rounded-lg border border-border-soft bg-inset p-3">
+              <div className="label">Bounty Manager</div>
               <div className="mt-0.5 truncate font-mono text-[13px] font-medium text-heading">agentbounty.eth</div>
               <div className="mt-1.5 text-base font-bold text-heading">
                 {displayAsset === 'ADC' && managerBalanceAdc !== null
