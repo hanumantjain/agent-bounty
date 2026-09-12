@@ -10,7 +10,7 @@ interface LogEntry {
   at: number
 }
 
-const IDENTITIES = ['researcher', 'intern', 'director']
+const IDENTITIES = ['intern', 'researcher', 'director']
 const TINYBARS_PER_HBAR = 100_000_000
 
 // Scans from the end backward: once the agent commits to a winning candidate among several

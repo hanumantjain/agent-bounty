@@ -24,7 +24,7 @@ interface Wallet {
   transactions: WalletTransaction[]
 }
 
-const IDENTITIES = ['researcher', 'intern', 'director']
+const IDENTITIES = ['intern', 'researcher', 'director']
 
 const TX_TYPE_LABELS: Record<string, string> = {
   CRYPTOTRANSFER: 'Payment',

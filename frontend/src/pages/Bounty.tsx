@@ -66,10 +66,11 @@ function identityBadgeClass(identity: string) {
   return 'border-info/30 bg-info-bg text-info'
 }
 
-// The workers that always compete in a race (matches backend/routes/agent.js's
-// RACE_IDENTITIES). Plain-language stages so someone with zero context can follow along —
-// the raw technical step names are still available in the collapsible log below.
-const RACE_PARTICIPANTS = ['researcher', 'intern', 'director']
+// The workers that always compete in a race (same three identities as backend/routes/agent.js's
+// RACE_IDENTITIES — display order only, doesn't affect who actually wins). Plain-language stages
+// so someone with zero context can follow along — the raw technical step names are still
+// available in the collapsible log below.
+const RACE_PARTICIPANTS = ['intern', 'researcher', 'director']
 
 const STAGES = ['Reviewing the job', 'Grabbing the job', 'Doing the work', 'Handing in the answer']
 
