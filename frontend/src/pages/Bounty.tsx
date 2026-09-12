@@ -59,6 +59,14 @@ const TINYBARS_PER_HBAR = 100_000_000
 const hbar = (tinybars: string) => (Number(tinybars) / TINYBARS_PER_HBAR).toString()
 const adc = (units: number) => (units / 100).toFixed(2)
 
+// Hedera SDK's own TransactionId.toString() format (accountId@seconds.nanos) isn't what
+// HashScan/mirror-node transaction URLs expect (accountId-seconds-nanos) — confirmed live
+// against the mirror node's own /transactions lookup.
+function hashscanTxId(sdkTransactionId: string) {
+  const [account, time] = sdkTransactionId.split('@')
+  return `${account}-${time.replace('.', '-')}`
+}
+
 function identityBadgeClass(identity: string) {
   if (identity.startsWith('agentbounty')) return 'border-live/30 bg-live-bg text-live'
   if (identity === 'intern') return 'border-warning/30 bg-warning-bg text-warning'
@@ -356,11 +364,11 @@ export default function Bounty() {
                   Data payment logged to <Term name="HCS">HCS</Term> topic {bounty.answer.hcsAudit.topicId}{' '}
                   (sequence {bounty.answer.hcsAudit.sequenceNumber}) —{' '}
                   <a
-                    href={`https://hashscan.io/testnet/topic/${bounty.answer.hcsAudit.topicId}`}
+                    href={`https://hashscan.io/testnet/transaction/${hashscanTxId(bounty.answer.hcsAudit.transactionId)}`}
                     target="_blank"
                     rel="noreferrer"
                   >
-                    view the audit trail on HashScan
+                    view this payment's audit entry on HashScan
                   </a>
                 </p>
               )}
