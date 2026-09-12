@@ -148,11 +148,7 @@ export default function Bounties() {
     }
   }
 
-  const sortedBounties = [...bounties].sort((a, b) => {
-    const aOpen = a.status === 'Open' ? 0 : 1
-    const bOpen = b.status === 'Open' ? 0 : 1
-    return aOpen - bOpen
-  })
+  const openBounties = bounties.filter((b) => b.status === 'Open')
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -210,7 +206,7 @@ export default function Bounties() {
           <div className="flex flex-col gap-1">
             <span className="label">Task type</span>
             <select
-              className="w-48 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
+              className="w-68 rounded-lg border border-border bg-inset p-2.5 text-sm text-heading"
               value={taskType}
               onChange={(e) => {
                 setTaskType(e.target.value)
@@ -335,26 +331,27 @@ export default function Bounties() {
         </div>
       )}
 
-      {!bountiesLoading && !error && bounties.length === 0 && (
+      {!bountiesLoading && !error && openBounties.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">◆</div>
-          <p className="text-sm font-medium text-heading">No bounties yet</p>
+          <p className="text-sm font-medium text-heading">No open bounties right now</p>
           <p className="text-xs text-dim">
             Post one above, or run <code>npm run create-bounty</code> in <code>agent/</code>
           </p>
         </div>
       )}
 
-      {sortedBounties.length > 0 && (
+      {openBounties.length > 0 && (
         <p className="mb-3 text-xs text-dim">
           Status: <span className="text-heading">Open</span> → <span className="text-heading">Claimed</span> →{' '}
           <span className="text-heading">Submitted</span> → <span className="text-heading">Paid</span> (or{' '}
-          <span className="text-heading">Rejected</span>)
+          <span className="text-heading">Rejected</span>) — claimed bounties drop off this list once an agent picks
+          them up.
         </p>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {sortedBounties.map((bounty) => (
+        {openBounties.map((bounty) => (
           <Link
             key={bounty.taskId}
             to={`/bounty/${bounty.taskId}`}
