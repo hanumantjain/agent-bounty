@@ -59,9 +59,7 @@ function App() {
           className={`fixed inset-y-0 left-0 z-40 flex h-full w-64 shrink-0 -translate-x-full flex-col gap-8 overflow-y-auto border-r border-border bg-bg p-5 transition-transform duration-200 lg:static lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : ''}`}
         >
           <div className="flex items-center gap-2.5 px-1">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-signal text-base font-bold text-bg">
-              A
-            </span>
+            <img src="/icon.png" alt="" className="h-8 w-8 shrink-0 rounded-md object-contain" />
             <span className="text-[16px] font-semibold text-heading">AgentBounty</span>
           </div>
 
