@@ -148,7 +148,11 @@ export default function Bounties() {
     }
   }
 
-  const openBounties = bounties.filter((b) => b.status === 'Open')
+  const sortedBounties = [...bounties].sort((a, b) => {
+    const aOpen = a.status === 'Open' ? 0 : 1
+    const bOpen = b.status === 'Open' ? 0 : 1
+    return aOpen - bOpen
+  })
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -331,27 +335,26 @@ export default function Bounties() {
         </div>
       )}
 
-      {!bountiesLoading && !error && openBounties.length === 0 && (
+      {!bountiesLoading && !error && bounties.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">◆</div>
-          <p className="text-sm font-medium text-heading">No open bounties right now</p>
+          <p className="text-sm font-medium text-heading">No bounties yet</p>
           <p className="text-xs text-dim">
             Post one above, or run <code>npm run create-bounty</code> in <code>agent/</code>
           </p>
         </div>
       )}
 
-      {openBounties.length > 0 && (
+      {sortedBounties.length > 0 && (
         <p className="mb-3 text-xs text-dim">
           Status: <span className="text-heading">Open</span> → <span className="text-heading">Claimed</span> →{' '}
           <span className="text-heading">Submitted</span> → <span className="text-heading">Paid</span> (or{' '}
-          <span className="text-heading">Rejected</span>) — claimed bounties drop off this list once an agent picks
-          them up.
+          <span className="text-heading">Rejected</span>)
         </p>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {openBounties.map((bounty) => (
+        {sortedBounties.map((bounty) => (
           <Link
             key={bounty.taskId}
             to={`/bounty/${bounty.taskId}`}
