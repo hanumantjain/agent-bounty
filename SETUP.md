@@ -27,7 +27,19 @@ You need credentials for two separate networks — they're unrelated to each oth
 2. Pick a live, actively-syncing Messari-standardized **lending** subgraph (only lending-schema subgraphs have the `withdraws` entity this project queries) via [Graph Explorer](https://thegraph.com/explorer) — search "messari" + a protocol (Aave, Compound, Morpho, Spark) and confirm it shows **Synced**, not **Deprecated**. Note its subgraph ID.
    - You can reuse the one this project already verified live: `FKe6ANnWmGPE6hajGLoTgPrVF2jYPHiRu2Jwcg9ZmG9A` — but subgraphs can go stale over time, so it's worth spot-checking it's still syncing.
 
-## 3. Configure environment files
+## 3. Get an OpenAI API key
+
+This is required, not optional — `judgeAnomaly()` (the actual SUSPICIOUS/CLEAR verdict logic,
+called by both the agent when it claims a bounty and the verifier when it independently rechecks
+one) is an LLM call with no fixed-rule fallback. Without a working key, agents can't submit
+answers and the verifier can't check them.
+
+1. Create an API key at [platform.openai.com](https://platform.openai.com/api-keys). This is
+   billed separately from a ChatGPT subscription.
+2. The default model (`gpt-4o-mini`, set in `OPENAI_MODEL`) is inexpensive and sufficient — no
+   need to change it unless you want to.
+
+## 4. Configure environment files
 
 Copy each `.env.example` to `.env` and fill in the real values (all three files are git-ignored):
 
@@ -40,6 +52,7 @@ cp contracts/.env.example contracts/.env
 **`backend/.env`**
 - `HEDERA_PAY_TO_ACCOUNT_ID` — your second Hedera account (the one receiving payments)
 - `GRAPH_API_KEY`, `GRAPH_SUBGRAPH_ID` — from step 2
+- `OPENAI_API_KEY` — from step 3 (`OPENAI_MODEL` can stay at its default)
 - Everything else can stay at its default
 
 **`agent/.env`**
@@ -47,17 +60,20 @@ cp contracts/.env.example contracts/.env
 - `ENS_ADMIN_PRIVATE_KEY` — your Sepolia wallet's private key
 - `ENS_PARENT_LABEL` — a unique label you want to register, e.g. `agentbounty-yourname` (no `.eth` suffix)
 - `GRAPH_API_KEY`, `GRAPH_SUBGRAPH_ID` — same as backend, used by the independent verifier
-- `BOUNTY_CONTRACT_ADDRESS` — leave blank until step 5
+- `OPENAI_API_KEY` — same as backend; this process needs its own copy, it does **not** inherit backend's (`judgeAnomaly()` is called directly from here, both when claiming a bounty and when verifying one)
+- `BOUNTY_CONTRACT_ADDRESS` — leave blank until step 8
+- `DATA_CREDIT_TOKEN_ID`, `HCS_AUDIT_TOPIC_ID` — leave blank until steps 6 and 7
 
 **`contracts/.env`**
 - `DEPLOYER_PRIVATE_KEY` — reuse your Hedera account's private key from `agent/.env`
 - `VERIFIER_ADDRESS` — leave blank to default to the deployer's own address (fine for a single-operator demo; the contract already supports a distinct verifier account if you want to split the role later)
+- `DATA_CREDIT_TOKEN_ID` — leave blank until step 6 (needed at deploy time — the contract's constructor takes the ADC token's address)
 
 **Never** paste any private key into a chat/AI session — edit the `.env` files directly.
 
-## 4. Register your ENS identities on Sepolia
+## 5. Register your ENS identities on Sepolia
 
-This deploys your own ENSv2 subname registry, registers your parent name, creates two subnames (`researcher`, `intern`), gives each its own Permissioned Resolver, and sets the `agent.spending.limit` text record on each via a key-scoped Enhanced Access Control grant — all in one script, no faucet or UI needed beyond the Sepolia ETH you already have.
+This deploys your own ENSv2 subname registry, registers your parent name, creates three subnames (`researcher`, `intern`, `director`), gives each its own Permissioned Resolver, and sets the `agent.spending.limit` text record on each via a key-scoped Enhanced Access Control grant — all in one script, no faucet or UI needed beyond the Sepolia ETH you already have.
 
 ```bash
 cd agent
@@ -67,11 +83,38 @@ npm run setup-ens
 
 This takes a few minutes (there's a ~70 second commit-reveal wait built into ENS registration). It prints a transaction hash at every step — each one is checkable on Sepolia Etherscan.
 
-## 5. Deploy the bounty escrow contract
+## 6. Create the ADC data-credit token
 
-The contract can fund and pay out a bounty's reward in either HBAR or ADC (the same HTS data-credit
-token from step 3), so it needs to know the ADC token's ID at deploy time — set
-`DATA_CREDIT_TOKEN_ID` in `contracts/.env` (same value as `agent/.env`'s) before deploying.
+A real HTS fungible token, "AgentBounty Data Credit" (`ADC`) — a second settlement asset agents
+can pay for data with instead of HBAR, and (since this project's contract supports it) a second
+asset a bounty's reward can be funded and paid out in too.
+
+```bash
+cd agent
+node --env-file=.env scripts/setupDataCreditToken.js
+```
+
+This also distributes tiered starting balances to `researcher`/`intern`/`director` (deliberately
+different amounts, so the HBAR-fallback behavior is actually exercised). Paste the printed token
+ID into `DATA_CREDIT_TOKEN_ID` in **both** `agent/.env` and `contracts/.env`.
+
+## 7. Set up the HCS payment audit topic
+
+Every x402 settlement gets logged as a message to a dedicated Hedera Consensus Service topic — an
+independently-checkable payment audit trail via the mirror node, not just an app-side log.
+
+```bash
+cd agent
+node --env-file=.env scripts/setupHcsAuditTopic.js
+```
+
+Paste the printed topic ID into `HCS_AUDIT_TOPIC_ID` in `agent/.env`.
+
+## 8. Deploy the bounty escrow contract
+
+The contract can fund and pay out a bounty's reward in either HBAR or ADC, so it needs to know
+the ADC token's address at deploy time — this is why `DATA_CREDIT_TOKEN_ID` must already be set
+in `contracts/.env` (step 6) before running this.
 
 ```bash
 cd contracts
@@ -84,7 +127,7 @@ npm run associate-adc   # one-time: lets the contract hold ADC in escrow — mus
 
 Copy the printed contract address into `BOUNTY_CONTRACT_ADDRESS` in both `agent/.env` and `backend/.env`.
 
-## 6. Run it
+## 9. Run it
 
 ```bash
 npm install                     # from repo root, installs backend/frontend deps
@@ -98,19 +141,21 @@ npm run agent:start:intern      # intern identity: same flow, smaller budget buy
 
 Or drive the whole thing from the dashboard at `http://localhost:5173` — the **Live Execution** screen runs the same flow with a live step-by-step view.
 
-## 7. (Optional) Give each identity its own Hedera account, for the "Activate Bounty" race
+## 10. (Optional) Give each identity its own Hedera account, for the "Activate Bounty" race
 
-Every bounty's Details page has an **Activate Bounty** button — it makes every configured identity (`researcher`, `intern`) attempt to claim that bounty at once, and whoever's `claimBounty` transaction lands first wins (the escrow contract only ever allows one claimant per bounty). Without this step, both identities sign with the same shared account from step 1, so the "race" is really one wallet against itself. To make it a real race between independent signers:
+Every bounty's Details page has an **Activate Bounty** button — it makes every configured identity (`researcher`, `intern`, `director`) attempt to claim that bounty at once, and whoever's `claimBounty` transaction lands first wins (the escrow contract only ever allows one claimant per bounty). Without this step, all three identities sign with the same shared account from step 1, so the "race" is really one wallet against itself. To make it a real race between independent signers:
 
-1. Create two more Hedera testnet accounts the same way as step 1 (portal.hedera.com, ECDSA key type, auto-funded by the portal).
+1. Create three more Hedera testnet accounts the same way as step 1 (portal.hedera.com, ECDSA key type, auto-funded by the portal).
 2. Add them to `agent/.env`:
    ```
    RESEARCHER_HEDERA_ACCOUNT_ID=
    RESEARCHER_HEDERA_PRIVATE_KEY=
    INTERN_HEDERA_ACCOUNT_ID=
    INTERN_HEDERA_PRIVATE_KEY=
+   DIRECTOR_HEDERA_ACCOUNT_ID=
+   DIRECTOR_HEDERA_PRIVATE_KEY=
    ```
-Any identity left unset falls back to the shared `AGENT_HEDERA_*` account, so this can be done incrementally.
+Any identity left unset falls back to the shared `AGENT_HEDERA_*` account, so this can be done incrementally. If you also want each identity's own real ADC balance rather than sharing the manager's, re-run step 6 after adding these accounts — `setupDataCreditToken.js` distributes balances to whichever of `researcher`/`intern`/`director` it finds dedicated accounts for.
 
 ## Troubleshooting
 

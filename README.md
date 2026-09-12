@@ -40,11 +40,40 @@ Pricing for this data is **usage-based, not flat**: `GET /api/data/pricing` expo
 
 ### 3. Hedera — Machine Payments & Settlement
 
-The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky402** x402 facilitator on Hedera testnet. The agent builds and signs a real `TransferTransaction`, the facilitator verifies and settles it, and the bounty itself is a small Solidity escrow contract deployed on Hedera testnet (compiled with `solc`, deployed via `viem` against Hedera's JSON-RPC relay) that funds, tracks submissions, and pays out HBAR on independent verification.
+The data endpoint is gated by a real HTTP 402 flow, settled through the **Blocky402** x402 facilitator on Hedera testnet. The agent builds and signs a real `TransferTransaction`, the facilitator verifies and settles it, and the bounty itself is a small Solidity escrow contract deployed on Hedera testnet (compiled with `solc`, deployed via `viem` against Hedera's JSON-RPC relay) that funds, tracks submissions, and pays out HBAR or ADC — whichever the bounty was actually funded in — on independent verification.
 
 Every settlement is also logged to a dedicated **Hedera Consensus Service (HCS) topic** (`0.0.10462976`) — a verifiable, independently-checkable payment audit trail, not just an app-side log. The backend submits a `TopicMessageSubmitTransaction` right after each x402 settlement (resource, asset, amount, payer, payTo, the underlying settlement tx id), and the resulting `{topicId, sequenceNumber}` travels with the agent's on-chain answer, so any past payment can be looked up forever via the mirror node: `GET /api/v1/topics/{topicId}/messages/{sequenceNumber}`. Confirmed live — a message logged for a real 4.95 HBAR payment decoded back, independently, to the exact same amount, payer, and settlement transaction id.
 
 The endpoint also accepts a **second, real settlement asset**: a live HTS fungible token, "AgentBounty Data Credit" (`0.0.10464008`, symbol `ADC`). Every 402 challenge offers both options; each agent identity checks its own real, current ADC balance (via the mirror node, not a declared policy — a deliberately different trust model from the ENS-declared HBAR limit) and pays in ADC when its balance covers the price, falling back to HBAR otherwise. Confirmed live both ways: `director` (2000 ADC) paid a real 60.00 ADC settlement — independently confirmed on the mirror node as a genuine `token_transfers` entry, not HBAR — while `intern` (0 ADC) correctly fell back and paid 0.9 HBAR instead, with zero token transfer for that payment.
+
+ADC isn't limited to data payments — the same token can fund and pay out a bounty's **reward**
+too. `createBountyWithToken` pulls ADC into escrow via the standard ERC-20 approve-then-pull
+pattern on the token's HTS facade (a two-transaction flow: approve, then fund), and
+`releaseReward` pays out whichever asset — HBAR or ADC — the bounty was actually funded in,
+branching on an `asset` field stored per-bounty on-chain. A contract has no private key to sign a
+normal SDK token-association transaction, so the contract self-associates with ADC from inside
+its own Solidity code (a one-time `associateAdcToken()` call, using the HTS token's HIP-719
+facade), a real constraint this project had to work around, not a design choice.
+
+### 4. OpenAI — Grounded AI Judgment, Never a New Source of Truth
+
+`judgeAnomaly()` is the actual verdict logic behind every bounty: given the real, freshly-fetched
+list of items for a task's entity (withdrawals, deposits, borrows, repayments, or liquidations),
+an LLM judges SUSPICIOUS or CLEAR — a single very large transaction, a cluster of large ones, or
+an otherwise unusual pattern can trigger it, with **no fixed dollar cutoff** (an earlier version
+of this project used a hardcoded $50,000 threshold; this replaced it). The same function is
+called identically on both sides of verification: the agent uses it to decide what verdict to
+submit when claiming, and the independent verifier calls it again, separately, on freshly
+re-fetched data, to decide whether it agrees — a payout only happens if both the verdict *and*
+the specific transaction each side flagged as largest actually match.
+
+This makes OpenAI a **hard dependency**, not a cosmetic add-on: if the API is unavailable or
+returns something unparseable, `judgeAnomaly()` throws rather than silently defaulting a verdict,
+since this decides real payouts. Two more, genuinely cosmetic uses build on real data the same
+way: AI-drafted bounty suggestions (grounded in live subgraph data, scoped to whichever task type
+is already selected, never suggesting a category the agent doesn't actually know how to do) and
+a plain-English reviewer note summarizing why an already-independently-verified answer landed
+where it did — both fail silently if OpenAI is unavailable, since neither one decides anything.
 
 ---
 
@@ -56,7 +85,7 @@ The endpoint also accepts a **second, real settlement asset**: a live HTS fungib
 4. Once it finds one it can do: it claims that bounty on-chain (`claimBounty`) — an atomic, real transaction, so a second agent can't also claim and submit against the same bounty (and if another agent claims it first in the meantime, the claim reverts and the agent moves on to the next candidate instead)
 5. It requests the paid data → receives HTTP `402 Payment Required`
 6. Pays via Hedera x402 through Blocky402 — only reachable because the affordability check already passed for this bounty
-7. Retrieves live data from The Graph for that task's entity (withdrawals, deposits, borrows, repayments, or liquidations) and analyzes it, flagging anomalies (e.g. an unusually large amount)
+7. Retrieves live data from The Graph for that task's entity (withdrawals, deposits, borrows, repayments, or liquidations) and asks an LLM to judge the full list SUSPICIOUS or CLEAR — a single very large item, a cluster, or an unusual pattern, with no fixed dollar cutoff
 8. Submits its answer on-chain (`submitAnswer`) — only the identity that claimed the bounty can do this
 9. A human reviews it on the **Bounty Details** screen: an independent check re-queries The Graph itself, re-runs the analysis, and shows the fresh result next to the submitted one
 10. The human approves or rejects — the reward is released on-chain **only on approval**; a fabricated or wrong answer is visibly caught by the independent check before that decision is made
@@ -101,15 +130,25 @@ Any **Open** bounty's Details page has an **Activate Bounty** button — an alte
                                   └───────────────┘
 ```
 
+OpenAI isn't pictured above as a fourth branch because it isn't one — unlike ENSv2/Graph/Hedera,
+which are backend-mediated integrations, `judgeAnomaly()` is called directly from within `agent/`
+itself, at two different points in the same flow: once by the agent when it claims and analyzes
+a bounty, and again, completely independently, by the verifier when it rechecks a submission —
+see Core Technologies #4.
+
 `agent/` is the autonomous agent itself: it holds the Hedera and ENS keys, orchestrates the discover → decide → claim → pay → analyze → submit flow, and provides the independent-check logic a human reviews before approving payout. It runs both as a standalone CLI and as the engine behind the backend's live-execution SSE stream.
 
 The bounty escrow smart contract stays intentionally small:
 
 ```solidity
-createBounty(bytes32 taskId, string description, string taskType) payable
+createBounty(bytes32 taskId, string description, string taskType) payable  // fund with HBAR
+createBountyWithToken(bytes32 taskId, string description, string taskType, uint256 amount)
+                                                      // fund with ADC — needs a prior ERC-20 approve
+associateAdcToken()                                  // one-time, self-called — lets the contract hold ADC
 claimBounty(bytes32 taskId)                          // agent-only, atomic — blocks a second claim
 submitAnswer(bytes32 taskId, bytes answer)           // only the claimant
-releaseReward(bytes32 taskId, bool approved)         // verifier-key-gated, called after human review
+releaseReward(bytes32 taskId, bool approved)         // verifier-key-gated; pays out HBAR or ADC,
+                                                      // whichever asset the bounty was funded in
 ```
 
 The agent's reasoning stays off-chain; only the economic settlement (bounty creation, claim, submission, reward release) happens on-chain.
@@ -159,7 +198,7 @@ agentbounty/
 
 ## Local Development
 
-See **[SETUP.md](./SETUP.md)** for the full credential setup (Hedera testnet account, Sepolia wallet, Graph API key).
+See **[SETUP.md](./SETUP.md)** for the full credential setup (Hedera testnet account, Sepolia wallet, Graph API key, OpenAI API key).
 
 ```bash
 git clone https://github.com/hanumantjain/agent-bounty.git
@@ -192,7 +231,8 @@ Run tests: `npm test` (see [TESTING.md](./TESTING.md) for coverage details).
 
 - ENSv2 (Sepolia beta)
 - The Graph
-- Hedera (testnet) — x402 via Blocky402, Hedera Consensus Service (HCS) for the payment audit trail, Hedera Token Service (HTS) for the second settlement asset
+- Hedera (testnet) — x402 via Blocky402, Hedera Consensus Service (HCS) for the payment audit trail, Hedera Token Service (HTS) for the second settlement asset — used for both the data payment and the bounty reward itself
+- OpenAI (`gpt-4o-mini`) — the actual verdict logic (`judgeAnomaly`), called independently by both the agent and the verifier; also AI-drafted bounty suggestions and a cosmetic reviewer note
 - Solidity (compiled with `solc`, deployed via `viem`)
 - TypeScript / React / Tailwind CSS
 - Node.js / Express
