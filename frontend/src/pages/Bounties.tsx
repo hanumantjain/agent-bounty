@@ -229,7 +229,7 @@ export default function Bounties() {
 
           <div className="flex flex-col gap-2">
             <button className="btn-ghost w-fit" onClick={getSuggestions} disabled={suggestLoading || !taskType}>
-              {suggestLoading ? 'Thinking…' : `💡 Get a suggestion for ${taskTypes[taskType]?.label ?? 'this task type'}`}
+              {suggestLoading ? 'Thinking…' : `💡 Get suggestions for ${taskTypes[taskType]?.label ?? 'this task type'}`}
             </button>
             {suggestError && <p className="text-xs text-danger">{suggestError}</p>}
             {suggestions && suggestions.length === 0 && !suggestError && (

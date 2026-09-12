@@ -79,10 +79,10 @@ async function getSuggestions(taskType) {
     .join('\n')
 
   const validTaskTypes = realFindings.map((s) => ENTITY_TASK_TYPES[s.entity])
-  const maxSuggestions = taskType ? 1 : 3
+  const maxSuggestions = 3
 
   const instructions = taskType
-    ? `Suggest one specific, compelling bounty description a user could post right now for a "${taskType}" bounty, based on the real finding above.`
+    ? `Suggest 3 different specific, compelling bounty descriptions a user could post right now for a "${taskType}" bounty, each based on the real finding above but phrased with a distinct angle — do not repeat the same sentence.`
     : `Suggest up to 3 specific, compelling bounty ideas a user could post right now, each based on one of the real findings above.`
 
   const prompt = `Here is real, live activity just observed across DeFi lending protocols (Aave V3, Compound III, Morpho Aave V3):
